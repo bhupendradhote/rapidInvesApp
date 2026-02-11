@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "Rapid Invenst",
+    "slug": "rapit-invest",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "bharatstock",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+
+    "ios": {
+      "supportsTablet": true
+    },
+
+    "android": {
+      "package": "com.bharatstock.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#E6F4FE"
+      }
+    },
+
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/icon.png"
+    },
+
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
+        }
+      ]
+    ],
+
+    "experiments": {
+      "typedRoutes": true
+    },
+
+    "extra": {
+      "eas": {
+        "projectId": "2a1ef606-e726-4c50-9d00-7bebab722e89"
+      }
+    },
+
+    "owner": "bhupendra_dhote"
+  }
+}
