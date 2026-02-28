@@ -141,6 +141,12 @@ export default function ProfileDetails() {
 
   // --- Save Handler ---
   const handleUpdate = async () => {
+    // Basic validation
+    if (!username.trim()) {
+      Alert.alert('Validation Error', 'Full Name is required.');
+      return;
+    }
+
     setSaving(true);
     try {
         let dob = null;
@@ -151,24 +157,34 @@ export default function ProfileDetails() {
         const formData = new FormData();
         formData.append('name', username);
         formData.append('gender', gender);
-        if(dob) formData.append('dob', dob);
+        if (dob) formData.append('dob', dob);
         formData.append('pan_card', panNumber);
         formData.append('adhar_card', aadharNumber);
         
+        // Handle local image upload properly for React Native
         if (profileImage && !profileImage.startsWith('http') && !profileImage.startsWith('data:')) {
-            const filename = profileImage.split('/').pop();
-            const match = /\.(\w+)$/.exec(filename || '');
-            const type = match ? `image/${match[1]}` : `image/jpeg`;
-            // @ts-ignore
-            formData.append('profile_image', { uri: profileImage, name: filename, type });
+            const filename = profileImage.split('/').pop() || 'profile.jpg';
+            const match = /\.(\w+)$/.exec(filename);
+            let type = match ? `image/${match[1]}` : `image/jpeg`;
+            if (type === 'image/jpg') type = 'image/jpeg';
+            
+            formData.append('profile_image', { 
+                uri: Platform.OS === 'ios' ? profileImage.replace('file://', '') : profileImage, 
+                name: filename, 
+                type 
+            } as any);
         }
 
-        // await customerProfileServices.updateProfile(formData);
-        await new Promise(resolve => setTimeout(resolve, 1500)); 
+        // --- ACTUAL API INTEGRATION ---
+        await customerProfileServices.updateGeneralProfile(formData);
+        
         Alert.alert('Success', 'Profile updated successfully!');
-    } catch (error) {
-        console.error(error);
-        Alert.alert('Error', 'Failed to update profile.');
+    } catch (error: any) {
+        // Log the full error to catch backend validation issues
+        console.error('Profile Update Error:', JSON.stringify(error.response?.data || error.message, null, 2));
+        
+        const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Failed to update profile. Please try again.';
+        Alert.alert('Update Failed', errorMsg);
     } finally {
         setSaving(false);
     }

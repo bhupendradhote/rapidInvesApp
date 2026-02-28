@@ -1,7 +1,7 @@
 import axios from 'axios';
-import { storage } from '../storage'; // Ensure you import your storage object correctly
+import { storage } from '../storage';
 
-const BASE_URL = 'https://bharatstockmarketresearch.com/api'; 
+const BASE_URL = 'https://app.therapidinvestors.com/api'; 
 
 const apiClient = axios.create({
   baseURL: BASE_URL,

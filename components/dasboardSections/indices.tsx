@@ -384,10 +384,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 24,
     marginRight: 16,
-    overflow: 'hidden', // Ensures chart bleeds cleanly
+    overflow: 'hidden', 
     borderWidth: 1,
     borderColor: '#f1f5f9',
-    // Soft Elevation
     shadowColor: '#334155',
     shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 8 },
@@ -435,8 +434,8 @@ const styles = StyleSheet.create({
   // --- PRICE ---
   priceContainer: {
     paddingHorizontal: 16,
-    marginBottom: 4, // Push up slightly from chart
-    zIndex: 2, // Ensure text sits above chart if overlap
+    marginBottom: 4, 
+    zIndex: 2, 
   },
   priceText: {
     fontSize: 22,
@@ -455,7 +454,7 @@ const styles = StyleSheet.create({
     height: CHART_HEIGHT,
     width: '100%',
     justifyContent: 'flex-end',
-    marginBottom: -1, // Fix tiny gap on some screens
+    marginBottom: -1,
   },
   chartContainer: {
     width: '100%',

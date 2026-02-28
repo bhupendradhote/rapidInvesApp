@@ -9,10 +9,15 @@ import {
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import OtherPagesInc from '@/components/includes/otherPagesInc';
+
+// IMPORTANT: Adjust this path to wherever your profileServices file is located
+import customerProfileServices from '@/services/api/methods/profileService';
 
 const VerifyNumberPage = () => {
   const router = useRouter();
@@ -28,6 +33,10 @@ const VerifyNumberPage = () => {
   
   // State for showing success messages
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Loading States
+  const [isSending, setIsSending] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // Refs for OTP inputs
   const inputRefs = useRef<Array<TextInput | null>>([]);
@@ -61,6 +70,66 @@ const VerifyNumberPage = () => {
     setTimeout(() => {
       setSuccessMessage(null);
     }, 3000);
+  };
+
+  // --- API Integrations ---
+
+  const handleSendOtp = async () => {
+    const cleanedNumber = phoneNumber.replace(/[^0-9]/g, '');
+    if (cleanedNumber.length < 10) {
+      Alert.alert('Invalid Number', 'Please enter a valid phone number.');
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      // Adjust payload keys if your API expects something different (e.g., 'mobile', 'phone_number')
+await customerProfileServices.sendUpdateOtp({ 
+    type: 'phone', // Note: If 'phone' throws an error, try 'mobile'
+    value: cleanedNumber 
+  });      
+      setSuccessMessage(`OTP sent to ${phoneNumber}`);
+      setStep('otp');
+    } catch (error: any) {
+      console.error('Send OTP Error:', error.response?.data || error.message);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Failed to send OTP. Please try again.';
+      Alert.alert('Error', errorMsg);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const otpCode = otp.join('');
+    if (otpCode.length < 6) {
+      Alert.alert('Invalid OTP', 'Please enter the complete 6-digit OTP.');
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      const cleanedNumber = phoneNumber.replace(/[^0-9]/g, '');
+      // Adjust payload keys if your API expects something different
+      await customerProfileServices.verifyAndUpdate({ 
+    type: 'phone', 
+    value: cleanedNumber, 
+    otp: otpCode 
+  });
+      
+      showTemporaryMessage("Phone number verified successfully!");
+      
+      // Delay briefly so the user sees the success message before navigating back
+      setTimeout(() => {
+        router.back();
+      }, 1500);
+      
+    } catch (error: any) {
+      console.error('Verify OTP Error:', error.response?.data || error.message);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Invalid OTP. Please check and try again.';
+      Alert.alert('Verification Failed', errorMsg);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   return (
@@ -97,18 +166,20 @@ const VerifyNumberPage = () => {
                   onChangeText={setPhoneNumber}
                   keyboardType="phone-pad"
                   autoCorrect={false}
+                  editable={!isSending}
                 />
 
                 <TouchableOpacity 
-                  style={styles.primaryBtn}
+                  style={[styles.primaryBtn, isSending && styles.disabledBtn]}
                   activeOpacity={0.8}
-                  onPress={() => {
-                    console.log("Phone Number submitted:", phoneNumber);
-                    setSuccessMessage(`OTP sent to ${phoneNumber || 'your number'}`);
-                    setStep('otp');
-                  }}
+                  onPress={handleSendOtp}
+                  disabled={isSending}
                 >
-                  <Text style={styles.primaryBtnText}>Continue</Text>
+                  {isSending ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Continue</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             )}
@@ -131,25 +202,31 @@ const VerifyNumberPage = () => {
                         maxLength={1}
                         placeholder="0"
                         placeholderTextColor="#C0C0C0"
+                        editable={!isVerifying}
                         />
                   ))}
                 </View>
 
                 <TouchableOpacity 
-                  style={styles.primaryBtn}
+                  style={[styles.primaryBtn, isVerifying && styles.disabledBtn]}
                   activeOpacity={0.8}
-                  onPress={() => {
-                    const otpCode = otp.join('');
-                    console.log("Verifying OTP:", otpCode);
-                    showTemporaryMessage("Phone number verified successfully!");
-                  }}
+                  onPress={handleVerifyOtp}
+                  disabled={isVerifying}
                 >
-                  <Text style={styles.primaryBtnText}>Verify Number</Text>
+                  {isVerifying ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Verify Number</Text>
+                  )}
                 </TouchableOpacity>
 
                 <TouchableOpacity 
                     style={styles.resendBtn}
-                    onPress={() => setStep('number')}
+                    onPress={() => {
+                        setStep('number');
+                        setOtp(['', '', '', '', '', '']); // Clear OTP when going back
+                    }}
+                    disabled={isVerifying}
                 >
                     <Text style={styles.resendText}>Change Number</Text>
                 </TouchableOpacity>
@@ -235,6 +312,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  disabledBtn: {
+    opacity: 0.7,
   },
   primaryBtnText: {
     color: '#fff',

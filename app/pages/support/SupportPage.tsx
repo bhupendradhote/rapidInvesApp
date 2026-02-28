@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
   View,
@@ -16,10 +16,14 @@ import {
   KeyboardAvoidingView,
   FlatList,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+
+// IMPORTANT: Adjust this path to wherever your ticketServices file is located
+import ticketServices from '@/services/api/methods/ticketServices';
 
 // --- Constants ---
 const THEME_COLOR = '#0a7ea4';
@@ -27,24 +31,96 @@ const BG_COLOR = '#F8F9FA';
 const CARD_BG = '#FFFFFF';
 const { width } = Dimensions.get('window');
 
-const MOCK_HISTORY = [
-  { id: '1024', subject: 'KYC Verification Pending', status: 'pending', date: '2 mins ago', category: 'Account' },
-  { id: '1023', subject: 'Payment deduction issue', status: 'resolved', date: 'Yesterday', category: 'Payment' },
-  { id: '1021', subject: 'App crashing on login', status: 'rejected', date: '12 Oct 2024', category: 'Technical' },
-];
-
 const CATEGORIES = ['Account Issue', 'Payment/Billing', 'KYC Verification', 'Technical Bug', 'Other'];
+const PRIORITIES = ['Low', 'Medium', 'High']; // ADDED: Missing Priorities constant
+
+// --- Types ---
+interface TicketItem {
+  id: string;
+  subject: string;
+  priority: string;
+  status: string;
+  date: string;
+  category: string;
+}
 
 export default function SupportPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'create' | 'history'>('create');
 
+  // Create Ticket State
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [subject, setSubject] = useState('');
+  const [priority, setPriority] = useState(PRIORITIES[1]); // Set default to Medium
+
   const [description, setDescription] = useState('');
   const [attachment, setAttachment] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showCatDropdown, setShowCatDropdown] = useState(false);
+  const [showPriorityDropdown, setShowPriorityDropdown] = useState(false); // ADDED: Missing dropdown state
+
+  // History State
+  const [tickets, setTickets] = useState<TicketItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // --- API Integration ---
+  useEffect(() => {
+    fetchTickets();
+  }, []);
+
+  const fetchTickets = async () => {
+    try {
+      const response = await ticketServices.getTicketList();
+      
+      // 1. Log the EXACT payload from the backend
+      console.log('--- RAW TICKET HISTORY PAYLOAD ---');
+      console.log(JSON.stringify(response, null, 2));
+      console.log('----------------------------------');
+
+      // 2. Safely find the array in the response
+      let dataList = [];
+      if (Array.isArray(response)) {
+        dataList = response;
+      } else if (response?.data && Array.isArray(response.data)) {
+        dataList = response.data;
+      } else if (response?.data?.data && Array.isArray(response.data.data)) {
+        dataList = response.data.data;
+      } else if (response?.tickets && Array.isArray(response.tickets)) {
+        dataList = response.tickets;
+      }
+
+      if (!Array.isArray(dataList)) {
+         console.warn("Could not find an array in the response payload.");
+         setIsLoadingHistory(false);
+         setRefreshing(false);
+         return;
+      }
+
+      const mappedTickets: TicketItem[] = dataList.map((item: any) => ({
+        id: item.id?.toString() || Math.random().toString(),
+        subject: item.subject || item.title || item.issue || 'No Subject',
+        priority: item.priority || 'Medium',
+        status: item.status?.toLowerCase() || 'pending',
+        date: item.created_at || item.createdAt 
+            ? new Date(item.created_at || item.createdAt).toLocaleDateString() 
+            : 'Recently',
+        category: item.category || 'Other',
+      }));
+
+      setTickets(mappedTickets);
+    } catch (error) {
+      console.error('Failed to load tickets', error);
+    } finally {
+      setIsLoadingHistory(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchTickets();
+  };
 
   // --- Logic ---
   const handleAttachment = async () => {
@@ -76,21 +152,55 @@ export default function SupportPage() {
     }
 
     setSubmitting(true);
-    // Simulate API Call
-    setTimeout(() => {
-      setSubmitting(false);
-      Alert.alert('Ticket Raised', 'Your ticket #8839 has been created successfully.', [
+
+    try {
+      const formData = new FormData();
+      
+      formData.append('issue', category); 
+      formData.append('subject', subject); 
+      formData.append('priority', priority);
+      formData.append('description', description);
+
+      if (attachment) {
+        const filename = attachment.split('/').pop() || 'screenshot.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        let type = match ? `image/${match[1]}` : `image/jpeg`;
+        if (type === 'image/jpg') type = 'image/jpeg';
+
+        // If the API still complains, try changing 'attachment' to 'image' or 'file'
+        formData.append('attachment', {
+          uri: Platform.OS === 'ios' ? attachment.replace('file://', '') : attachment,
+          name: filename,
+          type,
+        } as any);
+      }
+
+      await ticketServices.storeTicket(formData);
+
+      Alert.alert('Ticket Raised', 'Your ticket has been created successfully.', [
         {
           text: 'View Status',
           onPress: () => {
             setSubject('');
+            setPriority(PRIORITIES[1]);
             setDescription('');
+            setCategory(CATEGORIES[0]);
             setAttachment(null);
+            
             setActiveTab('history');
+            setIsLoadingHistory(true);
+            fetchTickets();
           },
         },
       ]);
-    }, 1500);
+    } catch (error: any) {
+      console.error('Validation Errors:', JSON.stringify(error.response?.data, null, 2));
+      
+      const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Failed to submit the ticket.';
+      Alert.alert('Submission Failed', errorMsg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const openLink = (type: 'whatsapp' | 'email' | 'call') => {
@@ -112,7 +222,6 @@ export default function SupportPage() {
   const renderCreateTicket = () => (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       
-      {/* Contact Grid */}
       <View style={styles.quickContactContainer}>
         <Text style={styles.sectionHeader}>Instant Support</Text>
         <View style={styles.contactGrid}>
@@ -139,12 +248,10 @@ export default function SupportPage() {
         </View>
       </View>
 
-      {/* Form Card */}
       <View style={styles.formCard}>
         <Text style={styles.cardTitle}>Raise a Ticket</Text>
         <Text style={styles.cardSubtitle}>Submit your query and we will resolve it ASAP.</Text>
 
-        {/* Category Dropdown */}
         <Text style={styles.label}>Category</Text>
         <View style={{ zIndex: 10 }}>
             <TouchableOpacity 
@@ -175,7 +282,6 @@ export default function SupportPage() {
             )}
         </View>
 
-        {/* Subject */}
         <Text style={styles.label}>Subject</Text>
         <TextInput
           style={styles.input}
@@ -185,7 +291,36 @@ export default function SupportPage() {
           onChangeText={setSubject}
         />
 
-        {/* Description */}
+        <Text style={styles.label}>Priority</Text>
+        <View style={{ zIndex: 9 }}>
+            <TouchableOpacity 
+            style={styles.dropdownBtn} 
+            activeOpacity={0.8}
+            onPress={() => setShowPriorityDropdown(!showPriorityDropdown)}
+            >
+            <Text style={styles.dropdownText}>{priority}</Text>
+            <Feather name={showPriorityDropdown ? "chevron-up" : "chevron-down"} size={20} color="#6B7280" />
+            </TouchableOpacity>
+            
+            {showPriorityDropdown && (
+            <View style={styles.dropdownList}>
+                {PRIORITIES.map((p, idx) => (
+                <TouchableOpacity 
+                    key={idx} 
+                    style={[styles.dropdownItem, idx === PRIORITIES.length - 1 && { borderBottomWidth: 0 }]}
+                    onPress={() => {
+                    setPriority(p);
+                    setShowPriorityDropdown(false);
+                    }}
+                >
+                    <Text style={[styles.dropdownItemText, priority === p && { color: THEME_COLOR, fontWeight: '600' }]}>{p}</Text>
+                    {priority === p && <Feather name="check" size={16} color={THEME_COLOR} />}
+                </TouchableOpacity>
+                ))}
+            </View>
+            )}
+        </View>
+
         <Text style={styles.label}>Description</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
@@ -197,7 +332,6 @@ export default function SupportPage() {
           onChangeText={setDescription}
         />
 
-        {/* Attachment */}
         <Text style={styles.label}>Attachments (Optional)</Text>
         {!attachment ? (
             <TouchableOpacity style={styles.attachBtn} onPress={handleAttachment}>
@@ -215,11 +349,10 @@ export default function SupportPage() {
                 <TouchableOpacity style={styles.removeAttachBtn} onPress={removeAttachment}>
                     <Feather name="x" size={16} color="#fff" />
                 </TouchableOpacity>
-                <Text style={styles.attachedLabel}>Screenshot_01.jpg</Text>
+                <Text style={styles.attachedLabel}>Screenshot attached</Text>
             </View>
         )}
 
-        {/* Submit Button */}
         <TouchableOpacity 
           style={styles.submitBtn} 
           onPress={handleSubmitTicket} 
@@ -239,68 +372,88 @@ export default function SupportPage() {
     </ScrollView>
   );
 
-  const renderHistory = () => (
-    <FlatList
-      data={MOCK_HISTORY}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={{ padding: 20 }}
-      showsVerticalScrollIndicator={false}
-      ListEmptyComponent={
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIconBg}>
-            <Feather name="inbox" size={32} color="#9CA3AF" />
-          </View>
-          <Text style={styles.emptyText}>No tickets found</Text>
-          <Text style={styles.emptySubText}>You have not raised any support tickets yet.</Text>
+  const renderHistory = () => {
+    if (isLoadingHistory) {
+      return (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={THEME_COLOR} />
         </View>
-      }
-      renderItem={({ item }) => {
-        let statusColor = '#F59E0B'; // Pending (Amber)
-        let statusBg = '#FFFBEB';
-        if (item.status === 'resolved') {
-            statusColor = '#10B981'; // Green
-            statusBg = '#ECFDF5';
-        }
-        if (item.status === 'rejected') {
-            statusColor = '#EF4444'; // Red
-            statusBg = '#FEF2F2';
-        }
+      );
+    }
 
-        return (
-          <View style={styles.ticketCard}>
-            <View style={styles.ticketRow}>
-              <View style={styles.ticketIdBadge}>
-                <Text style={styles.ticketIdText}>#{item.id}</Text>
-              </View>
-              <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
-                <Text style={[styles.statusText, { color: statusColor }]}>{item.status.toUpperCase()}</Text>
-              </View>
+    return (
+      <FlatList
+        data={tickets}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ padding: 20, flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[THEME_COLOR]} />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIconBg}>
+              <Feather name="inbox" size={32} color="#9CA3AF" />
             </View>
-            
-            <Text style={styles.ticketSubject}>{item.subject}</Text>
-            
-            <View style={styles.ticketMetaRow}>
-                <View style={styles.metaItem}>
-                    <Feather name="tag" size={12} color="#9CA3AF" />
-                    <Text style={styles.ticketMeta}>{item.category}</Text>
-                </View>
-                <View style={styles.metaItem}>
-                    <Feather name="clock" size={12} color="#9CA3AF" />
-                    <Text style={styles.ticketMeta}>{item.date}</Text>
-                </View>
-            </View>
-
-            <View style={styles.divider} />
-            
-            <TouchableOpacity style={styles.viewBtn}>
-                <Text style={styles.viewBtnText}>View Timeline</Text>
-                <Feather name="chevron-right" size={16} color={THEME_COLOR} />
-            </TouchableOpacity>
+            <Text style={styles.emptyText}>No tickets found</Text>
+            <Text style={styles.emptySubText}>You have not raised any support tickets yet.</Text>
           </View>
-        );
-      }}
-    />
-  );
+        }
+        renderItem={({ item }) => {
+          let statusColor = '#F59E0B'; // Pending (Amber)
+          let statusBg = '#FFFBEB';
+          
+          if (item.status === 'resolved' || item.status === 'closed') {
+              statusColor = '#10B981'; // Green
+              statusBg = '#ECFDF5';
+          } else if (item.status === 'rejected') {
+              statusColor = '#EF4444'; // Red
+              statusBg = '#FEF2F2';
+          } else if (item.status === 'in progress' || item.status === 'open') {
+              statusColor = THEME_COLOR; // Blue
+              statusBg = '#E0F2FE';
+          }
+
+          return (
+            <View style={styles.ticketCard}>
+              <View style={styles.ticketRow}>
+                <View style={styles.ticketIdBadge}>
+                  <Text style={styles.ticketIdText}>#{item.id}</Text>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+                  <Text style={[styles.statusText, { color: statusColor }]}>{item.status.toUpperCase()}</Text>
+                </View>
+              </View>
+              
+              <Text style={styles.ticketSubject}>{item.subject}</Text>
+              
+              <View style={styles.ticketMetaRow}>
+                  <View style={styles.metaItem}>
+                      <Feather name="tag" size={12} color="#9CA3AF" />
+                      <Text style={styles.ticketMeta}>{item.category}</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                      <Feather name="clock" size={12} color="#9CA3AF" />
+                      <Text style={styles.ticketMeta}>{item.date}</Text>
+                  </View>
+              </View>
+
+              <View style={styles.divider} />
+              
+              {/* Note: Update this to route to your actual ticket details page */}
+              <TouchableOpacity 
+                style={styles.viewBtn}
+                // onPress={() => router.push(`/pages/detailPages/ticketDetails?id=${item.id}`)}
+              >
+                  <Text style={styles.viewBtnText}>View Timeline</Text>
+                  <Feather name="chevron-right" size={16} color={THEME_COLOR} />
+              </TouchableOpacity>
+            </View>
+          );
+        }}
+      />
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -353,6 +506,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BG_COLOR,
   },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   
   // Header
   header: {
@@ -362,7 +520,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: 35,
     paddingBottom: 15,
-
     backgroundColor: BG_COLOR,
   },
   backBtn: {

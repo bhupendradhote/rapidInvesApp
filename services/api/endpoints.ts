@@ -14,6 +14,34 @@ export const API_ENDPOINTS = {
     UPDATE_PROFILE: '/user/update',
   },
 
+  // Added Profile Endpoints
+  PROFILE: {
+    GET: '/profile',
+    UPDATE: '/profile/update',
+    OTP_SEND: '/profile/otp/send',
+    OTP_VERIFY: '/profile/otp/verify',
+    PASSWORD: {
+      SEND_OTP: '/profile/password/send-otp',
+      VERIFY_OTP: '/profile/password/verify-otp',
+      UPDATE: '/profile/password/update',
+    },
+  },
+
+  // Notification Bell Icon / Quick Actions
+  NOTIFICATIONS: {
+    UNSEEN: '/notifications/unseen',
+    MARK_READ: (id: number | string) => `/notifications/mark-read/${id}`,
+  },
+
+  // Full Notification Management (user/notifications prefix)
+  USER_NOTIFICATIONS: {
+    LIST: '/user/notifications',
+    READ: '/user/notifications/read',
+    READ_ALL: '/user/notifications/read-all',
+    DELETE: '/user/notifications/delete',
+    UNREAD_COUNT: '/user/notifications/unread-count',
+  },
+
   MARKET: {
     STOCKS: '/market/stocks',
   },
@@ -44,6 +72,13 @@ export const API_ENDPOINTS = {
     DETAILS: (id: number | string) => `/blogs/${id}`,
   },
 
+  // Announcements
+  ANNOUNCEMENTS: {
+    LIST: '/announcements',
+    ACTIVE: '/announcements/active',
+    DETAILS: (id: number | string) => `/announcements/${id}`,
+  },
+
   // KYC Endpoints (auth:sanctum)
   KYC: {
     START: '/kyc/start',
@@ -53,20 +88,34 @@ export const API_ENDPOINTS = {
   // Mobile Subscription & Razorpay (auth:sanctum)
   SUBSCRIPTION: {
     BASE: '/mobile/subscription',
-
     PLANS: '/mobile/subscription/plans',
-
+    COUPONS: '/mobile/subscription/coupons',
+    APPLY_COUPON: '/mobile/subscription/apply-coupon',
     RAZORPAY: {
       INITIATE: '/mobile/subscription/razorpay/initiate',
       VERIFY: '/mobile/subscription/razorpay/verify',
     },
-
     CURRENT: '/mobile/subscription/current',
-
     INVOICES: {
       LIST: '/mobile/subscription/invoices',
-      DOWNLOAD: (id: number | string) =>
-        `/mobile/subscription/invoice/${id}/download`,
+      DOWNLOAD: (id: number | string) => `/mobile/subscription/invoice/${id}/download`,
+    },
+  },
+
+  // Tickets (auth:sanctum)
+  TICKETS: {
+    LIST: '/ticket/list',
+    STORE: '/ticket/store',
+    DETAILS: (id: number | string) => `/ticket/${id}`,
+  },
+
+  // User Chat Api (auth:sanctum)
+  CHAT: {
+    HISTORY: '/chat/history',
+    SEND: '/chat/send',
+    NOTIFICATIONS: {
+      MARK_READ: (id: number | string) => `/chat/notifications/read/${id}`,
+      READ_ALL: '/chat/notifications/read-all',
     },
   },
 };

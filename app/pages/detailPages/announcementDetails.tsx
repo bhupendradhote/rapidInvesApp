@@ -1,66 +1,153 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  Dimensions, // Stack is likely from expo-router/stack or similar
+  Dimensions,
+  ActivityIndicator,
 } from 'react-native';
-import { useLocalSearchParams, Stack as ExpoStack } from 'expo-router'; // Corrected import based on usage
+import { useLocalSearchParams, Stack as ExpoStack } from 'expo-router';
 import OtherPagesInc from '@/components/includes/otherPagesInc';
+
+import announcementServices from '@/services/api/methods/announcementService';
+
+interface AnnouncementData {
+  title: string;
+  date: string;
+  tag: string;
+  bodyTitle: string;
+  bodyText: string;
+  bullets: string[];
+  footer: string;
+}
+
+const THEME_COLOR = '#0a7ea4';
 
 export default function AnnouncementDetails() {
   const params = useLocalSearchParams();
+  
+  // --- State ---
+  const [isLoading, setIsLoading] = useState(true);
+  const [data, setData] = useState<AnnouncementData>({
+    title: (params.title as string) || 'Loading...',
+    date: (params.date as string) || '',
+    tag: (params.tag as string) || '',
+    bodyTitle: '',
+    bodyText: '',
+    bullets: [],
+    footer: '',
+  });
 
-  // Fallback data
-  const data = {
-    title: params.title || 'Planned maintenance window',
-    date: params.date || '30 Nov 2025',
-    tag: params.tag || 'Info update',
-    bodyTitle: 'Maintenance window',
-    bodyText: 'Scheduled between 11.30 PM and 12.30 PM on Sunday night. During the time:',
-    bullets: [
-      'Exist logged-in users may experience brief disconnects',
-      'New logins and KYC documents uploads may be temporarily unavailable.',
-    ],
-    footer: 'If the update impact you and you have a question, you can raise a ticket from the Support & Complaints page.',
-  };
+  // --- API Integration ---
+  useEffect(() => {
+    const fetchAnnouncementDetails = async () => {
+      // If no ID is passed, we can't fetch. Just stop loading.
+      if (!params.id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await announcementServices.getAnnouncementById(params.id as string);
+        
+        if (response) {
+          // Map the API response to our local state structure.
+          // Note: Adjust 'description', 'content', 'bullets' based on your actual API schema.
+          setData({
+            title: response.title || params.title || 'Announcement',
+            date: response.when || response.createdAt 
+              ? new Date(response.createdAt).toLocaleDateString() 
+              : (params.date as string) || 'Recent',
+            tag: Array.isArray(response.tags) ? response.tags[0] : (params.tag as string) || 'Update',
+            bodyTitle: response.bodyTitle || response.subtitle || 'Details',
+            bodyText: response.bodyText || response.description || response.content || '',
+            bullets: response.bullets || [], // Assuming API returns an array of strings for bullets
+            footer: response.footer || 'If this update impacts you and you have a question, you can raise a ticket from the Support & Complaints page.',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch announcement details:', error);
+        // Fallback data if API fails, so the screen isn't completely blank
+        setData({
+          title: (params.title as string) || 'Planned maintenance window',
+          date: (params.date as string) || '30 Nov 2025',
+          tag: (params.tag as string) || 'Info update',
+          bodyTitle: 'Maintenance window',
+          bodyText: 'Scheduled between 11.30 PM and 12.30 PM on Sunday night. During the time:',
+          bullets: [
+            'Existing logged-in users may experience brief disconnects.',
+            'New logins and KYC documents uploads may be temporarily unavailable.',
+          ],
+          footer: 'If the update impacts you and you have a question, you can raise a ticket from the Support & Complaints page.',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAnnouncementDetails();
+  }, [params.id]);
 
   return (
     <OtherPagesInc>
       <ExpoStack.Screen options={{ headerShown: false }} />
       
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.card}>
-          <Text style={styles.title}>{data.title}</Text>
-          <Text style={styles.meta}>
-            {data.date} • <Text style={styles.metaTag}>{data.tag}</Text>
-          </Text>
-
-          <Text style={styles.sectionHeader}>{data.bodyTitle}</Text>
-          <Text style={styles.bodyText}>{data.bodyText}</Text>
-
-          <View style={styles.bulletContainer}>
-            {data.bullets.map((point, index) => (
-              <View key={index} style={styles.bulletRow}>
-                <Text style={styles.bulletDot}>•</Text>
-                <Text style={styles.bulletText}>{point}</Text>
-              </View>
-            ))}
-          </View>
-
-          <Text style={styles.footerNote}>{data.footer}</Text>
+      {isLoading ? (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color={THEME_COLOR} />
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.card}>
+            <Text style={styles.title}>{data.title}</Text>
+            
+            {(data.date || data.tag) && (
+              <Text style={styles.meta}>
+                {data.date} {data.date && data.tag ? '• ' : ''}
+                <Text style={styles.metaTag}>{data.tag}</Text>
+              </Text>
+            )}
+
+            {!!data.bodyTitle && (
+              <Text style={styles.sectionHeader}>{data.bodyTitle}</Text>
+            )}
+            
+            {!!data.bodyText && (
+              <Text style={styles.bodyText}>{data.bodyText}</Text>
+            )}
+
+            {data.bullets && data.bullets.length > 0 && (
+              <View style={styles.bulletContainer}>
+                {data.bullets.map((point, index) => (
+                  <View key={index} style={styles.bulletRow}>
+                    <Text style={styles.bulletDot}>•</Text>
+                    <Text style={styles.bulletText}>{point}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {!!data.footer && (
+              <Text style={styles.footerNote}>{data.footer}</Text>
+            )}
+          </View>
+        </ScrollView>
+      )}
     </OtherPagesInc>
   );
 }
 
 const styles = StyleSheet.create({
-  
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA', // Assuming same background as standard pages
+  },
   scrollContent: {
     padding: 10,
     paddingBottom: 20,

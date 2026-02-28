@@ -9,10 +9,15 @@ import {
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import OtherPagesInc from '@/components/includes/otherPagesInc';
+
+// IMPORTANT: Adjust this path to wherever your profileServices file is located
+import customerProfileServices from '@/services/api/methods/profileService';
 
 const VerifyEmailPage = () => {
   const router = useRouter();
@@ -22,6 +27,10 @@ const VerifyEmailPage = () => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
+  // Loading States
+  const [isSending, setIsSending] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const inputRefs = useRef<Array<TextInput | null>>([]);
 
@@ -30,9 +39,11 @@ const VerifyEmailPage = () => {
     newOtp[index] = text;
     setOtp(newOtp);
 
+    // Auto-advance
     if (text.length === 1 && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
+    // Auto-retreat on empty string (handled via keypress for better UX, but keeping this as fallback)
     if (text.length === 0 && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
@@ -49,6 +60,65 @@ const VerifyEmailPage = () => {
     setTimeout(() => {
       setSuccessMessage(null);
     }, 3000);
+  };
+
+  // --- API Integrations ---
+
+  const handleSendOtp = async () => {
+    if (!email.trim() || !email.includes('@')) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      // Adjust payload keys if your API expects something different
+      await customerProfileServices.sendUpdateOtp({ 
+    type: 'email', 
+    value: email.trim() 
+  });
+      
+      setSuccessMessage(`OTP sent to ${email}`);
+      setStep('otp');
+    } catch (error: any) {
+      console.error('Send OTP Error:', error.response?.data || error.message);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Failed to send OTP. Please try again.';
+      Alert.alert('Error', errorMsg);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const otpCode = otp.join('');
+    if (otpCode.length < 6) {
+      Alert.alert('Invalid OTP', 'Please enter the complete 6-digit OTP.');
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      // Adjust payload keys if your API expects something different
+      await customerProfileServices.verifyAndUpdate({ 
+    type: 'email', 
+    value: email.trim(), 
+    otp: otpCode 
+  });
+      
+      showTemporaryMessage("Email verified successfully!");
+      
+      // Delay briefly so the user sees the success message before navigating back
+      setTimeout(() => {
+        router.back();
+      }, 1500);
+      
+    } catch (error: any) {
+      console.error('Verify OTP Error:', error.response?.data || error.message);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Invalid OTP. Please check and try again.';
+      Alert.alert('Verification Failed', errorMsg);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   return (
@@ -84,17 +154,20 @@ const VerifyEmailPage = () => {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  editable={!isSending}
                 />
 
                 <TouchableOpacity 
-                  style={styles.primaryBtn}
+                  style={[styles.primaryBtn, isSending && styles.disabledBtn]}
                   activeOpacity={0.8}
-                  onPress={() => {
-                    setSuccessMessage(`OTP sent to ${email || 'your email'}`);
-                    setStep('otp');
-                  }}
+                  onPress={handleSendOtp}
+                  disabled={isSending}
                 >
-                  <Text style={styles.primaryBtnText}>Continue</Text>
+                  {isSending ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Continue</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             )}
@@ -116,24 +189,31 @@ const VerifyEmailPage = () => {
                         maxLength={1}
                         placeholder="0"
                         placeholderTextColor="#C0C0C0"
+                        editable={!isVerifying}
                         />
                   ))}
                 </View>
 
                 <TouchableOpacity 
-                  style={styles.primaryBtn}
+                  style={[styles.primaryBtn, isVerifying && styles.disabledBtn]}
                   activeOpacity={0.8}
-                  onPress={() => {
-                    const otpCode = otp.join('');
-                    showTemporaryMessage("Email verified successfully!");
-                  }}
+                  onPress={handleVerifyOtp}
+                  disabled={isVerifying}
                 >
-                  <Text style={styles.primaryBtnText}>Verify Email</Text>
+                  {isVerifying ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Verify Email</Text>
+                  )}
                 </TouchableOpacity>
 
                 <TouchableOpacity 
                     style={styles.resendBtn}
-                    onPress={() => setStep('email')}
+                    onPress={() => {
+                        setStep('email');
+                        setOtp(['', '', '', '', '', '']); // Clear OTP when going back
+                    }}
+                    disabled={isVerifying}
                 >
                     <Text style={styles.resendText}>Change Email</Text>
                 </TouchableOpacity>
@@ -219,6 +299,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  disabledBtn: {
+    opacity: 0.7,
   },
   primaryBtnText: {
     color: '#fff',

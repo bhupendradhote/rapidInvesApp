@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,14 @@ import {
   FlatList,
   Dimensions,
   ListRenderItem,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
+
+// IMPORTANT: Adjust this path to match exactly where your services file is located.
+import announcementServices from '@/services/api/methods/announcementService';
 
 // --- Constants ---
 const { width } = Dimensions.get('window');
@@ -36,49 +41,60 @@ interface FilterItem {
   count: number;
 }
 
-// --- Data ---
-const DATA: AnnouncementItem[] = [
-  {
-    id: '1',
-    title: 'New Notification Center & Learning Modules',
-    subtitle: 'Track all alerts in one place and learn the logic behind each tip via structured modules.',
-    when: 'Today',
-    tags: ['Features', 'New'],
-  },
-  {
-    id: '2',
-    title: 'Change in Package Bill Cycle',
-    subtitle: 'Monthly plans now renew exactly 30 days from activation time for transparent billing.',
-    when: '2 days ago',
-    tags: ['Service Update', 'New'],
-  },
-  {
-    id: '3',
-    title: 'Plan Maintenance Window',
-    subtitle: 'Short maintenance window this weekend; reading access stays on, but new logins might be affected.',
-    when: '3 days ago',
-    tags: ['Others', 'Info'],
-  },
-  {
-      id: '4',
-      title: 'Market Analysis Report',
-      subtitle: 'Weekly market analysis report is now available for download.',
-      when: '5 days ago',
-      tags: ['Reports', 'Market'],
-  }
-];
-
 export default function Announcements() {
   const router = useRouter();
+  
+  // --- State ---
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('All');
-  const [timeframe, setTimeframe] = useState('Last 30 Days');
+
+  // --- API Integration ---
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      // You can swap to getActiveAnnouncements() if you only want active ones
+      const response = await announcementServices.getAllAnnouncements();
+      
+      // Safety check in case response is null/undefined
+      if (response) {
+        // Map API data to our local AnnouncementItem interface
+        // Adjust these mappings based on your actual API response structure
+        const mappedData: AnnouncementItem[] = response.map((item: any) => ({
+          id: item.id?.toString() || Math.random().toString(),
+          title: item.title || 'No Title',
+          subtitle: item.subtitle || item.description || item.content || '',
+          when: item.when || item.createdAt 
+            ? new Date(item.createdAt).toLocaleDateString() 
+            : 'Recently',
+          tags: Array.isArray(item.tags) ? item.tags : (item.category ? [item.category] : ['Others']),
+        }));
+        setAnnouncements(mappedData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch announcements:', error);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData();
+  };
 
   // --- Filter Logic ---
   const filteredData = useMemo(() => {
-    return DATA.filter((d) => {
+    return announcements.filter((d) => {
       if (selectedFilter === 'All') return true;
-      return d.tags.includes(selectedFilter);
+      // Case insensitive tag matching just in case
+      return d.tags.some(tag => tag.toLowerCase() === selectedFilter.toLowerCase());
     }).filter((d) => {
       if (!search) return true;
       const q = search.toLowerCase();
@@ -88,12 +104,14 @@ export default function Announcements() {
         d.tags.join(' ').toLowerCase().includes(q)
       );
     });
-  }, [search, selectedFilter]);
+  }, [search, selectedFilter, announcements]);
 
   // --- Counts ---
   const getCount = (key: string) => {
-    if (key === 'All') return DATA.length;
-    return DATA.filter((d) => d.tags.includes(key)).length;
+    if (key === 'All') return announcements.length;
+    return announcements.filter((d) => 
+      d.tags.some(tag => tag.toLowerCase() === key.toLowerCase())
+    ).length;
   };
 
   const FILTERS: FilterItem[] = [
@@ -135,7 +153,7 @@ export default function Announcements() {
               id: item.id,
               title: item.title,
               date: item.when,
-              tag: item.tags[0] 
+              tag: item.tags[0] || 'Update' 
             }
           });
         }}
@@ -218,20 +236,31 @@ export default function Announcements() {
                 </ScrollView>
             </View>
 
-            {/* List */}
-            <FlatList
-                data={filteredData}
-                keyExtractor={(i) => i.id}
-                renderItem={renderCard}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                <View style={styles.emptyState}>
-                    <Feather name="inbox" size={40} color="#D1D5DB" />
-                    <Text style={styles.emptyText}>No announcements found.</Text>
-                </View>
-                }
-            />
+            {/* Main Content Area */}
+            {isLoading ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={THEME_COLOR} />
+              </View>
+            ) : (
+              <FlatList
+                  data={filteredData}
+                  keyExtractor={(i) => i.id}
+                  renderItem={renderCard}
+                  contentContainerStyle={styles.listContent}
+                  showsVerticalScrollIndicator={false}
+                  refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[THEME_COLOR]} />
+                  }
+                  ListEmptyComponent={
+                    <View style={styles.emptyState}>
+                        <Feather name="inbox" size={40} color="#D1D5DB" />
+                        <Text style={styles.emptyText}>
+                          {search ? "No matching announcements." : "No announcements found."}
+                        </Text>
+                    </View>
+                  }
+              />
+            )}
         </View>
       </SafeAreaView>
     </>
@@ -246,6 +275,11 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   
   // Header

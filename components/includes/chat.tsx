@@ -9,13 +9,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
-  Image,
   LayoutAnimation,
   UIManager,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 
-// Enable LayoutAnimation for Android
+import chatServices from '@/services/api/methods/chatServices';
+
 if (
   Platform.OS === 'android' &&
   UIManager.setLayoutAnimationEnabledExperimental
@@ -23,7 +24,6 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// --- Types ---
 interface Message {
   id: string;
   text: string;
@@ -31,11 +31,10 @@ interface Message {
   timestamp: string;
 }
 
-// --- Constants & Theme ---
 const COLORS = {
-  primary: '#2A2A2A', 
-  accent: '#007AFF',  // Blue for "My" messages
-  headerAvatarBg: '#0D8ABC', // Color for the support avatar background
+  primary: '#2A2A2A',
+  accent: '#007AFF',
+  headerAvatarBg: '#0D8ABC',
   background: '#F5F5F7',
   white: '#FFFFFF',
   grayLight: '#E5E5EA',
@@ -46,20 +45,47 @@ const COLORS = {
 
 export default function ChatScreen() {
   const [inputText, setInputText] = useState('');
-  
-  // Dummy Data with a "Support" context
-  const [messages, setMessages] = useState<Message[]>([
-    { 
-      id: '1', 
-      text: 'Hello! Welcome to Rapid InvestSupport. How can I assist you with your portfolio today?', 
-      sender: 'other', 
-      timestamp: '10:00 AM' 
-    },
-  ]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const flatListRef = useRef<FlatList>(null);
 
-  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
+    try {
+      setIsLoading(true);
+      const historyData = await chatServices.getChatHistory();
+      
+      if (historyData && historyData.length > 0) {
+        const formattedHistory: Message[] = historyData.map((msg: any) => ({
+          id: msg.id?.toString() || Math.random().toString(),
+          text: msg.text || msg.message || '', 
+          sender: msg.isMe || msg.sender === 'user' ? 'me' : 'other', 
+          timestamp: msg.createdAt 
+            ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        }));
+        setMessages(formattedHistory);
+      } else {
+        setMessages([
+          {
+            id: '1',
+            text: 'Hello! Welcome to Rapid InvestSupport. How can I assist you with your portfolio today?',
+            sender: 'other',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error('Failed to load chat history', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => {
@@ -68,66 +94,67 @@ export default function ChatScreen() {
     }
   }, [messages]);
 
-  const sendMessage = () => {
+  // --- 2. Send Message via API ---
+  const sendMessage = async () => {
     if (inputText.trim().length === 0) return;
 
-    // Animate the new message entry
+    const textToSend = inputText.trim();
+    
+    setInputText('');
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
     const newMessage: Message = {
       id: Date.now().toString(),
-      text: inputText.trim(),
+      text: textToSend,
       sender: 'me',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
-
+    
     setMessages((prev) => [...prev, newMessage]);
-    setInputText('');
 
-    // Simulate a reply after 2 seconds
-    setTimeout(() => {
-        const replyMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            text: "Thanks for reaching out. Let me check the market data for you.",
-            sender: 'other',
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        };
+    try {
+      const response = await chatServices.sendMessage({ message: textToSend });
+      
+      if (response && (response.reply || response.botMessage)) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        const replyMessage: Message = {
+          id: response.id?.toString() || (Date.now() + 1).toString(),
+          text: response.reply || response.botMessage,
+          sender: 'other',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
         setMessages((prev) => [...prev, replyMessage]);
-    }, 2000);
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
   };
 
   const renderItem = ({ item, index }: { item: Message; index: number }) => {
     const isMe = item.sender === 'me';
-    // Logic to check if previous message was from same sender (to group bubbles visually)
     const isNextSame = messages[index + 1]?.sender === item.sender;
 
     return (
       <View style={[
-        styles.messageRow, 
+        styles.messageRow,
         isMe ? styles.rowEnd : styles.rowStart,
-        { marginBottom: isNextSame ? 4 : 16 } // Tighter spacing for grouped messages
+        { marginBottom: isNextSame ? 4 : 16 }
       ]}>
-        
-        {/* Avatar for 'Other' (Chat bubbles) */}
         {!isMe && (
           <View style={styles.avatarContainer}>
-             {/* If it's the last message in a group, show avatar, else invisible spacer */}
             {!isNextSame ? (
-                <View style={[styles.avatarCircle, { backgroundColor: COLORS.headerAvatarBg }]}>
-                    <MaterialIcons name="support-agent" size={16} color="#fff" />
-                </View>
+              <View style={[styles.avatarCircle, { backgroundColor: COLORS.headerAvatarBg }]}>
+                <MaterialIcons name="support-agent" size={16} color="#fff" />
+              </View>
             ) : (
-                <View style={styles.avatarSpacer} />
+              <View style={styles.avatarSpacer} />
             )}
           </View>
         )}
 
-        {/* Message Bubble */}
         <View style={[
-          styles.bubble, 
+          styles.bubble,
           isMe ? styles.bubbleMe : styles.bubbleOther,
-          // Dynamic Border Radius logic
           isMe && !isNextSame ? { borderBottomRightRadius: 4 } : {},
           !isMe && !isNextSame ? { borderBottomLeftRadius: 4 } : {},
         ]}>
@@ -144,80 +171,79 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      
-      {/* 1. Professional Header (UPDATED WITH YOUR SNIPPET) */}
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          
           <View style={styles.headerLeft}>
-            {/* --- Start User Snippet --- */}
             <View style={styles.headerAvatar}>
-               <MaterialIcons name="support-agent" size={24} color="#fff" />
+              <MaterialIcons name="support-agent" size={24} color="#fff" />
             </View>
             <View style={styles.headerTextContainer}>
-               <Text style={styles.headerTitle}>Support</Text>
-               <Text style={styles.headerSubtitle}>Online</Text>
+              <Text style={styles.headerTitle}>Support</Text>
+              <Text style={styles.headerSubtitle}>Online</Text>
             </View>
-            {/* --- End User Snippet --- */}
           </View>
-
-          {/* Header Actions */}
           <View style={styles.headerActions}>
             <TouchableOpacity style={styles.iconButton}>
-                <Ionicons name="call-outline" size={22} color={COLORS.primary} />
+              <Ionicons name="call-outline" size={22} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
         </View>
       </View>
 
-      {/* 2. Chat List */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        keyboardDismissMode="interactive" // Hides keyboard on scroll drag
-        onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-      />
+      {/* Main Chat Area */}
+      {isLoading ? (
+        <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color={COLORS.accent} />
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          keyboardDismissMode="interactive"
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+        />
+      )}
 
-      {/* 3. Modern Input Area */}
+      {/* Input Area */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <View style={styles.inputWrapper}>
-            {/* Attachment Icon (Visual only) */}
-            <TouchableOpacity style={styles.attachButton}>
-                <Ionicons name="add" size={28} color={COLORS.accent} />
-            </TouchableOpacity>
+          <TouchableOpacity style={styles.attachButton}>
+            <Ionicons name="add" size={28} color={COLORS.accent} />
+          </TouchableOpacity>
 
-            <View style={styles.inputContainer}>
-                <TextInput
-                    style={styles.input}
-                    value={inputText}
-                    onChangeText={setInputText}
-                    placeholder="Type a message..."
-                    placeholderTextColor="#999"
-                    multiline
-                    maxLength={500}
-                />
-            </View>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Type a message..."
+              placeholderTextColor="#999"
+              multiline
+              maxLength={500}
+            />
+          </View>
 
-            <TouchableOpacity 
-                style={[
-                    styles.sendButton, 
-                    { backgroundColor: inputText.trim() ? COLORS.accent : COLORS.grayLight }
-                ]} 
-                onPress={sendMessage}
-                disabled={!inputText.trim()}
-            >
-                <Ionicons 
-                    name="arrow-up" 
-                    size={20} 
-                    color={inputText.trim() ? COLORS.white : '#A0A0A0'} 
-                />
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              { backgroundColor: inputText.trim() ? COLORS.accent : COLORS.grayLight }
+            ]}
+            onPress={sendMessage}
+            disabled={!inputText.trim()}
+          >
+            <Ionicons
+              name="arrow-up"
+              size={20}
+              color={inputText.trim() ? COLORS.white : '#A0A0A0'}
+            />
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -229,7 +255,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   // --- Header Styles ---
   header: {
     backgroundColor: COLORS.white,
@@ -253,7 +283,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  // UPDATED: Header Avatar Container
   headerAvatar: {
     width: 42,
     height: 42,
@@ -273,7 +302,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 13,
-    color: COLORS.greenOnline, // Using green to emphasize "Online"
+    color: COLORS.greenOnline,
     fontWeight: '600',
   },
   headerActions: {
@@ -301,7 +330,7 @@ const styles = StyleSheet.create({
   rowEnd: {
     justifyContent: 'flex-end',
   },
-  
+
   // --- Avatar in List ---
   avatarContainer: {
     marginRight: 8,
@@ -324,7 +353,7 @@ const styles = StyleSheet.create({
     maxWidth: '75%',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 20, // General roundness
+    borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -336,7 +365,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderBottomRightRadius: 20,
-    borderBottomLeftRadius: 4, 
+    borderBottomLeftRadius: 4,
   },
   bubbleMe: {
     backgroundColor: COLORS.accent,
@@ -345,7 +374,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 4,
   },
-  
+
   // --- Text ---
   messageText: {
     fontSize: 16,
@@ -391,7 +420,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
     minHeight: 40,
     justifyContent: 'center',
-    marginBottom: 4, 
+    marginBottom: 4,
   },
   input: {
     fontSize: 16,
@@ -406,6 +435,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4, 
+    marginBottom: 4,
   },
 });

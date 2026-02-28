@@ -12,13 +12,13 @@ import Sidebar from '@/components/includes/sidebar';
 import Indices from '@/components/dasboardSections/indices';
 import SectoralIndices from '@/components/dasboardSections/sectoralIndices';
 import MarketMovers from '@/components/dasboardSections/marketMovers';
-import TodaysMarketHighlights from '@/components/dasboardSections/todaysMarketHighlights'; // 2. Import new component
+import TodaysMarketHighlights from '@/components/dasboardSections/todaysMarketHighlights'; 
 import Search from '@/components/includes/search';
 
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [refreshing, setRefreshing] = useState(false); // 3. State for refresh
+  const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -43,12 +43,9 @@ export default function App() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-
           <Header
             onMenuPress={() => setIsSidebarOpen(true)}
           />
-
-          
           {/* <Search value={search} onChangeText={setSearch} /> */}
           
           <Indices />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,14 @@ import {
   StatusBar,
   Dimensions,
   Platform,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { Feather, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
+
+import notificationServices from '@/services/api/methods/notificationService';
 
 // --- Constants ---
 const THEME_COLOR = '#0a7ea4';
@@ -20,106 +25,148 @@ const CARD_BG = '#FFFFFF';
 const { width } = Dimensions.get('window');
 
 // --- Types ---
-type NotificationType = 'trading_buy' | 'trading_sell' | 'system' | 'offer' | 'payment';
-
 interface NotificationItem {
   id: string;
-  type: NotificationType;
+  type: string;
   title: string;
   message: string;
   time: string;
   read: boolean;
 }
 
-// --- Mock Data ---
-const MOCK_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: '1',
-    type: 'trading_buy',
-    title: 'Buy Alert: TATASTEEL',
-    message: 'Target 150 achieved. Book partial profit now.',
-    time: '2 min ago',
-    read: false,
-  },
-  {
-    id: '2',
-    type: 'payment',
-    title: 'Subscription Successful',
-    message: 'Your payment of ₹2,499 for Premium Plan was successful.',
-    time: '1 hour ago',
-    read: false,
-  },
-  {
-    id: '3',
-    type: 'trading_sell',
-    title: 'Stop Loss Hit: RELIANCE',
-    message: 'Market turning bearish. Exit position at 2400.',
-    time: '3 hours ago',
-    read: true,
-  },
-  {
-    id: '4',
-    type: 'system',
-    title: 'KYC Verified',
-    message: 'Your documents have been approved. You can now start trading.',
-    time: 'Yesterday',
-    read: true,
-  },
-  {
-    id: '5',
-    type: 'offer',
-    title: '20% Off Renewal',
-    message: 'Renew your plan before 10th Feb and save flat 20%.',
-    time: '2 days ago',
-    read: true,
-  },
-];
-
 export default function NotificationsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('All');
-  const [notifications, setNotifications] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [categories, setCategories] = useState<string[]>(['All']); // ← Dynamic categories
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // --- Logic ---
+  // Helper to normalize type → nice tab label (keeps your original grouping logic)
+  const getCategoryLabel = (type: string): string => {
+    const t = (type || '').toLowerCase().trim();
+    if (t.includes('trading') || t.includes('buy') || t.includes('sell')) return 'Trading';
+    if (t.includes('system') || t.includes('payment') || t.includes('alert') || t.includes('transaction')) return 'System';
+    if (t.includes('offer') || t.includes('promo') || t.includes('discount')) return 'Offers';
+    return type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Other';
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  // Auto-reset activeTab when categories change (e.g. after refresh with different data)
+  useEffect(() => {
+    if (categories.length > 0 && !categories.includes(activeTab)) {
+      setActiveTab('All');
+    }
+  }, [categories]);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await notificationServices.getAllNotifications();
+      
+      let dataList = [];
+      if (Array.isArray(response)) {
+        dataList = response;
+      } else if (response?.data && Array.isArray(response.data)) {
+        dataList = response.data;
+      } else if (response?.data?.data && Array.isArray(response.data.data)) {
+        dataList = response.data.data;
+      } else if (response?.notifications && Array.isArray(response.notifications)) {
+        dataList = response.notifications;
+      }
+
+      const mappedNotifications: NotificationItem[] = dataList.map((item: any) => ({
+        id: item.id?.toString() || Math.random().toString(),
+        type: item.type?.toLowerCase() || item.category?.toLowerCase() || 'system',
+        title: item.title || item.subject || 'New Notification',
+        message: item.message || item.body || item.description || '',
+        time: item.created_at || item.createdAt 
+            ? new Date(item.created_at || item.createdAt).toLocaleDateString() 
+            : 'Recently',
+        read: item.is_read || item.read || item.status === 'read' || false,
+      }));
+
+      setNotifications(mappedNotifications);
+
+      // === DYNAMIC CATEGORIES (this is what you asked for) ===
+      const catSet = new Set(mappedNotifications.map(item => getCategoryLabel(item.type)));
+      let catList = Array.from(catSet);
+
+      // Preferred order like your original tabs
+      const preferredOrder = ['Trading', 'System', 'Offers', 'Other'];
+      catList.sort((a, b) => {
+        const ia = preferredOrder.indexOf(a);
+        const ib = preferredOrder.indexOf(b);
+        if (ia === -1 && ib === -1) return a.localeCompare(b);
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      });
+
+      setCategories(['All', ...catList]);
+    } catch (error) {
+      console.error('Failed to fetch notifications', error);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchNotifications();
+  };
+
+  // Updated filtering – now uses the same getCategoryLabel (much cleaner)
   const getFilteredData = () => {
     if (activeTab === 'All') return notifications;
-    if (activeTab === 'Trading') return notifications.filter(n => n.type.includes('trading'));
-    if (activeTab === 'System') return notifications.filter(n => ['system', 'payment'].includes(n.type));
-    if (activeTab === 'Offers') return notifications.filter(n => n.type === 'offer');
-    return notifications;
+    return notifications.filter(n => getCategoryLabel(n.type) === activeTab);
   };
 
-  const markAllRead = () => {
-    const updated = notifications.map(n => ({ ...n, read: true }));
-    setNotifications(updated);
-  };
-
-  const markAsRead = (id: string) => {
-    const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n);
-    setNotifications(updated);
-  };
-
-  // --- Render Helpers ---
-  const getIcon = (type: NotificationType) => {
-    switch (type) {
-      case 'trading_buy': return <Feather name="trending-up" size={20} color="#059669" />;
-      case 'trading_sell': return <Feather name="trending-down" size={20} color="#DC2626" />;
-      case 'payment': return <MaterialIcons name="payment" size={20} color="#0284C7" />;
-      case 'system': return <Feather name="shield" size={20} color="#7C3AED" />;
-      case 'offer': return <MaterialCommunityIcons name="tag-outline" size={20} color="#D97706" />;
-      default: return <Feather name="bell" size={20} color="#6B7280" />;
+  const markAllRead = async () => {
+    try {
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      await notificationServices.markAllRead();
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+      Alert.alert('Error', 'Could not mark notifications as read.');
+      fetchNotifications(); 
     }
   };
 
-  const getIconBg = (type: NotificationType) => {
-    switch (type) {
-      case 'trading_buy': return '#ECFDF5';
-      case 'trading_sell': return '#FEF2F2';
-      case 'payment': return '#E0F2FE';
-      case 'system': return '#F3E8FF';
-      case 'offer': return '#FFFBEB';
-      default: return '#F3F4F6';
+  const markAsRead = async (id: string) => {
+    const target = notifications.find(n => n.id === id);
+    if (!target || target.read) return;
+
+    try {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+      await notificationServices.userMarkRead([id]);
+    } catch (error) {
+      console.error(`Error marking notification ${id} as read:`, error);
+      fetchNotifications(); 
     }
+  };
+
+  // --- Render Helpers (no changes needed) ---
+  const getIcon = (type: string) => {
+    if (type.includes('trading_buy') || type.includes('buy')) return <Feather name="trending-up" size={20} color="#059669" />;
+    if (type.includes('trading_sell') || type.includes('sell')) return <Feather name="trending-down" size={20} color="#DC2626" />;
+    if (type.includes('payment') || type.includes('transaction')) return <MaterialIcons name="payment" size={20} color="#0284C7" />;
+    if (type.includes('system') || type.includes('alert')) return <Feather name="shield" size={20} color="#7C3AED" />;
+    if (type.includes('offer') || type.includes('promo')) return <MaterialCommunityIcons name="tag-outline" size={20} color="#D97706" />;
+    return <Feather name="bell" size={20} color="#6B7280" />;
+  };
+
+  const getIconBg = (type: string) => {
+    if (type.includes('trading_buy') || type.includes('buy')) return '#ECFDF5';
+    if (type.includes('trading_sell') || type.includes('sell')) return '#FEF2F2';
+    if (type.includes('payment') || type.includes('transaction')) return '#E0F2FE';
+    if (type.includes('system') || type.includes('alert')) return '#F3E8FF';
+    if (type.includes('offer') || type.includes('promo')) return '#FFFBEB';
+    return '#F3F4F6';
   };
 
   const renderItem = ({ item }: { item: NotificationItem }) => (
@@ -129,12 +176,10 @@ export default function NotificationsPage() {
       onPress={() => markAsRead(item.id)}
     >
       <View style={styles.cardRow}>
-        {/* Icon */}
         <View style={[styles.iconBox, { backgroundColor: getIconBg(item.type) }]}>
           {getIcon(item.type)}
         </View>
 
-        {/* Content */}
         <View style={styles.contentBox}>
           <View style={styles.headerRow}>
             <Text style={[styles.cardTitle, !item.read && styles.unreadText]}>
@@ -148,7 +193,6 @@ export default function NotificationsPage() {
           </Text>
         </View>
 
-        {/* Unread Indicator */}
         {!item.read && <View style={styles.unreadDot} />}
       </View>
     </TouchableOpacity>
@@ -159,7 +203,6 @@ export default function NotificationsPage() {
       <StatusBar barStyle="dark-content" backgroundColor={BG_COLOR} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* --- Header --- */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Feather name="arrow-left" size={24} color="#111827" />
@@ -171,9 +214,8 @@ export default function NotificationsPage() {
         </TouchableOpacity>
       </View>
 
-      {/* --- Filter Tabs --- */}
       <View style={styles.tabsContainer}>
-        {['All', 'Trading', 'System', 'Offers'].map((tab) => (
+        {categories.map((tab) => (   // ← Now fully dynamic!
             <TouchableOpacity
                 key={tab}
                 style={[styles.tab, activeTab === tab && styles.activeTab]}
@@ -186,23 +228,31 @@ export default function NotificationsPage() {
         ))}
       </View>
 
-      {/* --- List --- */}
-      <FlatList
-        data={getFilteredData()}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIconBg}>
-              <Feather name="bell-off" size={32} color="#9CA3AF" />
+      {isLoading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={THEME_COLOR} />
+        </View>
+      ) : (
+        <FlatList
+          data={getFilteredData()}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[THEME_COLOR]} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIconBg}>
+                <Feather name="bell-off" size={32} color="#9CA3AF" />
+              </View>
+              <Text style={styles.emptyTitle}>No Notifications</Text>
+              <Text style={styles.emptySub}>You are all caught up! Check back later.</Text>
             </View>
-            <Text style={styles.emptyTitle}>No Notifications</Text>
-            <Text style={styles.emptySub}>You are all caught up! Check back later.</Text>
-          </View>
-        }
-      />
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -211,6 +261,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BG_COLOR,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   
   // Header
@@ -221,7 +276,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: 35,
     paddingBottom: 15,
-
     backgroundColor: BG_COLOR,
   },
   backBtn: {
@@ -281,6 +335,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 10,
     paddingTop: 10,
+    flexGrow: 1,
   },
   card: {
     backgroundColor: CARD_BG,
@@ -296,7 +351,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   unreadCard: {
-    backgroundColor: '#F0F9FF', // Very light teal/blue tint
+    backgroundColor: '#F0F9FF', 
     borderColor: '#BAE6FD',
   },
   cardRow: {
