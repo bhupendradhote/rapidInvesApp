@@ -39,16 +39,40 @@ const LoginRegisterPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [keepSignedIn, setKeepSignedIn] = useState(false);
 
-  // --- Handlers (Same Logic) ---
+  // --- Handlers ---
+  const proceedWithLoginFlow = async (token: string, user: any) => {
+    try {
+      const policyRes = await authService.getAcceptancePolicy(token);
+      
+      // Match the API exactly: success === true && show_policy === true
+      if (policyRes?.success === true && policyRes?.show_policy === true) {
+        router.replace({
+          pathname: '/pages/auth/acceptance',
+          params: {
+            token: token,
+            userStr: JSON.stringify(user)
+          }
+        });
+      } else {
+        // No policy needed, log user directly in
+        await signIn(token, user);
+      }
+    } catch (error) {
+      // If endpoint fails, fallback to standard login
+      await signIn(token, user);
+    }
+  };
+
   const handleLogin = async () => {
     setLoading(true);
     try {
       const response = await authService.login({ login_identity: email, password });
-      if (response.token) await signIn(response.token, response.user);
+      if (response.token) {
+        await proceedWithLoginFlow(response.token, response.user);
+      }
     } catch (error: any) {
       const msg = error.response?.data?.message || "Login failed.";
       Alert.alert("Error", msg);
-    } finally {
       setLoading(false);
     }
   };
@@ -106,15 +130,14 @@ const LoginRegisterPage = () => {
     try {
       const response = await authService.verifyOtp(tempKey, otpCode);
       if (response.token) {
-        await signIn(response.token, response.user);
-        Alert.alert("Verified!", "Account created. Logging in...");
+        await proceedWithLoginFlow(response.token, response.user);
       } else {
         setAuthMode('login');
         Alert.alert("Verified", "Please login with your new account.");
+        setLoading(false);
       }
     } catch (error: any) {
       Alert.alert("Error", error.response?.data?.message || "Invalid OTP.");
-    } finally {
       setLoading(false);
     }
   };
@@ -147,7 +170,6 @@ const LoginRegisterPage = () => {
     }
   };
 
-  // --- Render ---
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -162,7 +184,6 @@ const LoginRegisterPage = () => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
-            {/* Header / Back Button */}
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.backButton}
@@ -177,7 +198,6 @@ const LoginRegisterPage = () => {
                 </TouchableOpacity>
             </View>
 
-            {/* Titles */}
             <View style={styles.titleSection}>
                 <Text style={styles.title}>
                     {authMode === 'login' ? 'Welcome back' 
@@ -195,43 +215,20 @@ const LoginRegisterPage = () => {
 
             <View style={styles.formContainer}>
               
-              {/* === REGISTER FIELDS === */}
               {authMode === 'register' && (
                 <>
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Full Name</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="e.g. John Doe"
-                            placeholderTextColor="#9CA3AF"
-                            value={fullName}
-                            onChangeText={setFullName}
-                            autoCapitalize="words"
-                        />
+                        <TextInput style={styles.input} placeholder="e.g. John Doe" placeholderTextColor="#9CA3AF" value={fullName} onChangeText={setFullName} autoCapitalize="words" />
                     </View>
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Email Address</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="e.g. john@example.com"
-                            placeholderTextColor="#9CA3AF"
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                        />
+                        <TextInput style={styles.input} placeholder="e.g. john@example.com" placeholderTextColor="#9CA3AF" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
                     </View>
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Password</Text>
                         <View style={styles.passwordContainer}>
-                            <TextInput
-                                style={styles.passwordInput}
-                                placeholder="Create a password"
-                                placeholderTextColor="#9CA3AF"
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry={!showPassword}
-                            />
+                            <TextInput style={styles.passwordInput} placeholder="Create a password" placeholderTextColor="#9CA3AF" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} />
                             <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
                                 <Feather name={showPassword ? "eye-off" : "eye"} size={20} color="#9CA3AF" />
                             </TouchableOpacity>
@@ -240,14 +237,7 @@ const LoginRegisterPage = () => {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Confirm Password</Text>
                         <View style={styles.passwordContainer}>
-                            <TextInput
-                                style={styles.passwordInput}
-                                placeholder="Re-enter password"
-                                placeholderTextColor="#9CA3AF"
-                                value={confirmPassword}
-                                onChangeText={setConfirmPassword}
-                                secureTextEntry={!showConfirmPassword}
-                            />
+                            <TextInput style={styles.passwordInput} placeholder="Re-enter password" placeholderTextColor="#9CA3AF" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showConfirmPassword} />
                             <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
                                 <Feather name={showConfirmPassword ? "eye-off" : "eye"} size={20} color="#9CA3AF" />
                             </TouchableOpacity>
@@ -256,7 +246,6 @@ const LoginRegisterPage = () => {
                 </>
               )}
 
-              {/* === MOBILE FIELD === */}
               {authMode === 'mobile' && (
                 <View style={styles.inputGroup}>
                     <Text style={styles.label}>Mobile Number</Text>
@@ -264,36 +253,17 @@ const LoginRegisterPage = () => {
                         <View style={styles.countryCodeBox}>
                             <Text style={styles.countryCode}>+91</Text>
                         </View>
-                        <TextInput
-                            style={styles.phoneInput}
-                            placeholder="Enter 10-digit number"
-                            placeholderTextColor="#9CA3AF"
-                            value={phone}
-                            onChangeText={setPhone}
-                            keyboardType="phone-pad"
-                            maxLength={10}
-                        />
+                        <TextInput style={styles.phoneInput} placeholder="Enter 10-digit number" placeholderTextColor="#9CA3AF" value={phone} onChangeText={setPhone} keyboardType="phone-pad" maxLength={10} />
                     </View>
                 </View>
               )}
 
-              {/* === OTP FIELD === */}
               {authMode === 'otp' && (
                 <View style={styles.inputGroup}>
                     <Text style={styles.label}>One Time Password</Text>
                     <View style={styles.otpContainer}>
                         {otp.map((digit, index) => (
-                        <TextInput
-                            key={index}
-                            ref={(ref) => { inputRefs.current[index] = ref }} 
-                            style={[styles.otpInput, digit ? styles.otpInputFilled : null]}
-                            value={digit}
-                            onChangeText={(text) => handleOtpChange(text, index)}
-                            keyboardType="number-pad"
-                            maxLength={1}
-                            placeholder="•"
-                            placeholderTextColor="#D1D5DB"
-                        />
+                        <TextInput key={index} ref={(ref) => { inputRefs.current[index] = ref }} style={[styles.otpInput, digit ? styles.otpInputFilled : null]} value={digit} onChangeText={(text) => handleOtpChange(text, index)} keyboardType="number-pad" maxLength={1} placeholder="•" placeholderTextColor="#D1D5DB" />
                         ))}
                     </View>
                     <TouchableOpacity onPress={handleSendOtp} style={styles.resendBtn}>
@@ -302,31 +272,16 @@ const LoginRegisterPage = () => {
                 </View>
               )}
 
-              {/* === LOGIN FIELDS === */}
               {authMode === 'login' && (
                 <>
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Email or Mobile</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Enter your email or phone"
-                            placeholderTextColor="#9CA3AF"
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                        />
+                        <TextInput style={styles.input} placeholder="Enter your email or phone" placeholderTextColor="#9CA3AF" value={email} onChangeText={setEmail} autoCapitalize="none" />
                     </View>
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Password</Text>
                         <View style={styles.passwordContainer}>
-                            <TextInput
-                                style={styles.passwordInput}
-                                placeholder="Enter your password"
-                                placeholderTextColor="#9CA3AF"
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry={!showPassword}
-                            />
+                            <TextInput style={styles.passwordInput} placeholder="Enter your password" placeholderTextColor="#9CA3AF" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} />
                             <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
                                 <Feather name={showPassword ? "eye-off" : "eye"} size={20} color="#9CA3AF" />
                             </TouchableOpacity>
@@ -334,16 +289,8 @@ const LoginRegisterPage = () => {
                     </View>
                     
                     <View style={styles.optionsRow}>
-                        <TouchableOpacity 
-                            style={styles.checkboxContainer}
-                            activeOpacity={0.8}
-                            onPress={() => setKeepSignedIn(!keepSignedIn)}
-                        >
-                            <MaterialCommunityIcons 
-                                name={keepSignedIn ? "checkbox-marked" : "checkbox-blank-outline"} 
-                                size={22} 
-                                color={keepSignedIn ? THEME_COLOR : "#9CA3AF"} 
-                            />
+                        <TouchableOpacity style={styles.checkboxContainer} activeOpacity={0.8} onPress={() => setKeepSignedIn(!keepSignedIn)}>
+                            <MaterialCommunityIcons name={keepSignedIn ? "checkbox-marked" : "checkbox-blank-outline"} size={22} color={keepSignedIn ? THEME_COLOR : "#9CA3AF"} />
                             <Text style={styles.checkboxLabel}>Remember me</Text>
                         </TouchableOpacity>
 
@@ -354,12 +301,7 @@ const LoginRegisterPage = () => {
                 </>
               )}
 
-              <TouchableOpacity
-                style={styles.primaryBtn}
-                activeOpacity={0.9}
-                onPress={handleAction}
-                disabled={loading}
-              >
+              <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.9} onPress={handleAction} disabled={loading}>
                 {loading ? (
                     <ActivityIndicator color="#fff" />
                 ) : (
@@ -389,215 +331,38 @@ const LoginRegisterPage = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: BG_COLOR,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    flexGrow: 1,
-  },
-  
-  // Header
-  header: {
-    marginTop: 30,
-    marginBottom: 20,
-    alignItems: 'flex-start',
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#fff',
-  },
-  
-  // Titles
-  titleSection: {
-      marginBottom: 32,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#6B7280',
-    lineHeight: 22,
-  },
-  
-  // Form
-  formContainer: {
-    flex: 1,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  input: {
-    width: '100%',
-    height: 52,
-    backgroundColor: INPUT_BG,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: '#1F2937',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  
-  // Phone Field
-  phoneContainer: {
-    flexDirection: 'row',
-    height: 52,
-    backgroundColor: INPUT_BG,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    overflow: 'hidden',
-  },
-  countryCodeBox: {
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      borderRightWidth: 1,
-      borderRightColor: '#E5E7EB',
-      backgroundColor: '#F3F4F6',
-  },
-  countryCode: {
-    fontSize: 15,
-    color: '#374151',
-    fontWeight: '600',
-  },
-  phoneInput: {
-    flex: 1,
-    height: '100%',
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: '#1F2937',
-  },
-
-  // Password Field
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    height: 52,
-    backgroundColor: INPUT_BG,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 16,
-  },
-  passwordInput: {
-    flex: 1,
-    height: '100%',
-    fontSize: 15,
-    color: '#1F2937',
-  },
-  eyeIcon: {
-    padding: 8,
-  },
-
-  // Checkbox & Links
-  optionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-    marginTop: 4,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkboxLabel: {
-    fontSize: 14,
-    color: '#4B5563',
-    marginLeft: 6,
-  },
-  forgotPasswordText: {
-    fontSize: 14,
-    color: THEME_COLOR,
-    fontWeight: '600',
-  },
-
-  // Primary Button
-  primaryBtn: {
-    width: '100%',
-    height: 54,
-    backgroundColor: THEME_COLOR,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-    shadowColor: THEME_COLOR,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  primaryBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-
-  // Footer Links
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  linkText: {
-    fontSize: 14,
-    color: THEME_COLOR,
-    fontWeight: '700',
-  },
-
-  // OTP
-  otpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  otpInput: {
-    width: width / 7.5,
-    height: 50,
-    backgroundColor: INPUT_BG,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    textAlign: 'center',
-    fontSize: 20,
-    color: '#1F2937',
-    fontWeight: '600',
-  },
-  otpInputFilled: {
-      borderColor: THEME_COLOR,
-      backgroundColor: '#F0F9FF',
-  },
-  resendBtn: {
-      alignSelf: 'center',
-      padding: 8,
-  },
-  resendText: {
-      color: THEME_COLOR,
-      fontWeight: '600',
-      fontSize: 14,
-  },
+  container: { flex: 1, backgroundColor: BG_COLOR },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 40, flexGrow: 1 },
+  header: { marginTop: 30, marginBottom: 20, alignItems: 'flex-start' },
+  backButton: { padding: 8, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff' },
+  titleSection: { marginBottom: 32 },
+  title: { fontSize: 28, fontWeight: '800', color: '#111827', marginBottom: 8 },
+  subtitle: { fontSize: 15, color: '#6B7280', lineHeight: 22 },
+  formContainer: { flex: 1 },
+  inputGroup: { marginBottom: 20 },
+  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 },
+  input: { width: '100%', height: 52, backgroundColor: INPUT_BG, borderRadius: 12, paddingHorizontal: 16, fontSize: 15, color: '#1F2937', borderWidth: 1, borderColor: '#E5E7EB' },
+  phoneContainer: { flexDirection: 'row', height: 52, backgroundColor: INPUT_BG, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
+  countryCodeBox: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, borderRightWidth: 1, borderRightColor: '#E5E7EB', backgroundColor: '#F3F4F6' },
+  countryCode: { fontSize: 15, color: '#374151', fontWeight: '600' },
+  phoneInput: { flex: 1, height: '100%', paddingHorizontal: 16, fontSize: 15, color: '#1F2937' },
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', width: '100%', height: 52, backgroundColor: INPUT_BG, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 16 },
+  passwordInput: { flex: 1, height: '100%', fontSize: 15, color: '#1F2937' },
+  eyeIcon: { padding: 8 },
+  optionsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, marginTop: 4 },
+  checkboxContainer: { flexDirection: 'row', alignItems: 'center' },
+  checkboxLabel: { fontSize: 14, color: '#4B5563', marginLeft: 6 },
+  forgotPasswordText: { fontSize: 14, color: THEME_COLOR, fontWeight: '600' },
+  primaryBtn: { width: '100%', height: 54, backgroundColor: THEME_COLOR, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 24, shadowColor: THEME_COLOR, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  footerRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  footerText: { fontSize: 14, color: '#6B7280' },
+  linkText: { fontSize: 14, color: THEME_COLOR, fontWeight: '700' },
+  otpContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  otpInput: { width: width / 7.5, height: 50, backgroundColor: INPUT_BG, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, textAlign: 'center', fontSize: 20, color: '#1F2937', fontWeight: '600' },
+  otpInputFilled: { borderColor: THEME_COLOR, backgroundColor: '#F0F9FF' },
+  resendBtn: { alignSelf: 'center', padding: 8 },
+  resendText: { color: THEME_COLOR, fontWeight: '600', fontSize: 14 },
 });
 
 export default LoginRegisterPage;

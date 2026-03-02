@@ -41,6 +41,32 @@ export const authService = {
     return response.data;
   },
 
+  // 5. Get Acceptance Policy (GET)
+  getAcceptancePolicy: async (token: string) => {
+    const response = await apiClient.get('/acceptance', {
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json'
+      }
+    });
+    return response.data;
+  },
+
+// 6. Accept Policy (POST)
+  acceptPolicy: async (token: string) => {
+    const response = await apiClient.post(
+      API_ENDPOINTS.ACCEPTANCE.ACCEPT, // <-- Using the endpoint from your constants
+      {}, 
+      { 
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json'
+        } 
+      }
+    );
+    return response.data;
+  },
+
   logout: async () => {
     const response = await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT);
     return response.data;

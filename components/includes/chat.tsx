@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 
-import chatServices from '@/services/api/methods/chatServices';
+import chatServices from '@/services/api/methods/chatServices'; // adjust path if needed
 
 if (
   Platform.OS === 'android' &&
@@ -50,42 +50,59 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlatList>(null);
 
+  // --- Initial Fetch & Live Polling ---
   useEffect(() => {
-    fetchHistory();
+    // Initial load with the loading spinner
+    fetchHistory(true);
+
+    // Set up a background interval to fetch live messages every 3 seconds
+    const intervalId = setInterval(() => {
+      fetchHistory(false); // Fetch silently without showing the spinner
+    }, 3000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(intervalId);
   }, []);
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (showLoader = true) => {
     try {
-      setIsLoading(true);
+      if (showLoader) setIsLoading(true);
       const historyData = await chatServices.getChatHistory();
       
-      if (historyData && historyData.length > 0) {
-        const formattedHistory: Message[] = historyData.map((msg: any) => ({
-          id: msg.id?.toString() || Math.random().toString(),
-          text: msg.text || msg.message || '', 
-          sender: msg.isMe || msg.sender === 'user' ? 'me' : 'other', 
-          timestamp: msg.createdAt 
-            ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        }));
+      const dataArray = Array.isArray(historyData) 
+        ? historyData 
+        : (historyData?.data && Array.isArray(historyData.data)) 
+          ? historyData.data 
+          : [];
+
+      if (dataArray && dataArray.length > 0) {
+        const formattedHistory: Message[] = dataArray.map((msg: any) => {
+          // Strictly check 'from_role' based on your API
+          const isMyMessage = msg.from_role === 'user';
+
+          return {
+            id: msg.id?.toString() || Math.random().toString(),
+            text: msg.message || '', 
+            sender: isMyMessage ? 'me' : 'other', 
+            timestamp: msg.created_at
+              ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          };
+        });
+        
         setMessages(formattedHistory);
       } else {
-        setMessages([
-          {
-            id: '1',
-            text: 'Hello! Welcome to Rapid InvestSupport. How can I assist you with your portfolio today?',
-            sender: 'other',
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ]);
+        // Removed the dummy messages. It will just be empty now.
+        setMessages([]);
       }
     } catch (error) {
       console.error('Failed to load chat history', error);
     } finally {
-      setIsLoading(false);
+      if (showLoader) setIsLoading(false);
     }
   };
 
+  // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => {
@@ -94,15 +111,15 @@ export default function ChatScreen() {
     }
   }, [messages]);
 
-  // --- 2. Send Message via API ---
+  // --- Send Message ---
   const sendMessage = async () => {
     if (inputText.trim().length === 0) return;
 
     const textToSend = inputText.trim();
-    
     setInputText('');
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
+    // 1. Optimistically add message to UI instantly
     const newMessage: Message = {
       id: Date.now().toString(),
       text: textToSend,
@@ -113,20 +130,15 @@ export default function ChatScreen() {
     setMessages((prev) => [...prev, newMessage]);
 
     try {
-      const response = await chatServices.sendMessage({ message: textToSend });
+      // 2. Send to API silently
+      await chatServices.sendMessage({ message: textToSend });
       
-      if (response && (response.reply || response.botMessage)) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        const replyMessage: Message = {
-          id: response.id?.toString() || (Date.now() + 1).toString(),
-          text: response.reply || response.botMessage,
-          sender: 'other',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        };
-        setMessages((prev) => [...prev, replyMessage]);
-      }
+      // 3. Immediately trigger a silent fetch to get the finalized list/bot replies
+      fetchHistory(false);
+      
     } catch (error) {
       console.error('Failed to send message:', error);
+      // Optional: You could remove the message from state here if it fails to send
     }
   };
 
@@ -205,6 +217,11 @@ export default function ChatScreen() {
           contentContainerStyle={styles.listContent}
           keyboardDismissMode="interactive"
           onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Start the conversation...</Text>
+            </View>
+          }
         />
       )}
 
@@ -260,7 +277,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // --- Header Styles ---
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyText: {
+    color: '#A0A0A0',
+    fontSize: 16,
+  },
   header: {
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
@@ -311,8 +337,6 @@ const styles = StyleSheet.create({
   iconButton: {
     padding: 8,
   },
-
-  // --- List Styles ---
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 20,
@@ -330,8 +354,6 @@ const styles = StyleSheet.create({
   rowEnd: {
     justifyContent: 'flex-end',
   },
-
-  // --- Avatar in List ---
   avatarContainer: {
     marginRight: 8,
     width: 28,
@@ -347,8 +369,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
   },
-
-  // --- Bubbles ---
   bubble: {
     maxWidth: '75%',
     paddingHorizontal: 16,
@@ -366,6 +386,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     borderBottomRightRadius: 20,
     borderBottomLeftRadius: 4,
+    alignSelf: 'flex-start',
   },
   bubbleMe: {
     backgroundColor: COLORS.accent,
@@ -373,9 +394,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 4,
+    alignSelf: 'flex-end',
   },
-
-  // --- Text ---
   messageText: {
     fontSize: 16,
     lineHeight: 22,
@@ -397,8 +417,6 @@ const styles = StyleSheet.create({
   timeMe: {
     color: 'rgba(255,255,255,0.7)',
   },
-
-  // --- Input Area ---
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
