@@ -79,6 +79,12 @@ export const API_ENDPOINTS = {
     DETAILS: (id: number | string) => `/announcements/${id}`,
   },
 
+// ✅ Policies API
+ POLICIES: {
+  LIST: '/policies',
+  SLUG_POLICY: '/policies/:slug',   
+},
+
   // KYC Endpoints (auth:sanctum)
   KYC: {
     START: '/kyc/start',
