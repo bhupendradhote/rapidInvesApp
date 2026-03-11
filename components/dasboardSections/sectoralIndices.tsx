@@ -8,8 +8,10 @@ import {
   FlatList,
   RefreshControl,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { useRouter } from 'expo-router'; // <-- Imported useRouter
 import {
   fetchAngelIndices,
   AngelQuoteRaw,
@@ -31,6 +33,10 @@ type IndexModel = {
   percentChange: string;
   up: boolean;
   chart: number[];
+  // Raw numbers for safe passing to details page
+  rawPrice: number;
+  rawChange: number;
+  rawPercent: number;
 };
 
 const SECTORAL_SYMBOLS = [
@@ -163,6 +169,7 @@ const SectoralIndices: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
+  const router = useRouter(); // <-- Initialized Router
   const chartCache = useRef<Map<string, number[]>>(new Map());
   const isMounted = useRef(true);
   
@@ -195,11 +202,6 @@ const SectoralIndices: React.FC = () => {
       
       if (!isMounted.current) return;
 
-      /* REMOVED: The "backfill" logic block has been removed.
-         Fetching quotes for missing index tokens often causes 400 Errors 
-         because the Quote API expects Equity tokens, not Index tokens.
-      */
-
       const mapped: IndexModel[] = SECTORAL_SYMBOLS.map((s) => {
         const q = findMarketData(fetched, s);
 
@@ -217,15 +219,19 @@ const SectoralIndices: React.FC = () => {
             percentChange: '-',
             up: false,
             chart: cachedChart,
+            rawPrice: 0,
+            rawChange: 0,
+            rawPercent: 0,
           };
         }
 
         const currentLTP = Number(q.ltp ?? q.close ?? 0);
         const netChange = Number(q.netChange);
+        const percentChangeRaw = Number(q.percentChange);
         const up = netChange >= 0;
         const price = fmt(currentLTP);
         const change = netChange > 0 ? `+${netChange.toFixed(2)}` : netChange.toFixed(2);
-        const percentChange = `${Math.abs(Number(q.percentChange)).toFixed(2)}%`;
+        const percentChange = `${Math.abs(percentChangeRaw).toFixed(2)}%`;
 
         // Chart Logic
         let chartData = chartCache.current.get(s.token);
@@ -248,6 +254,9 @@ const SectoralIndices: React.FC = () => {
           percentChange,
           up,
           chart: chartData,
+          rawPrice: currentLTP,
+          rawChange: netChange,
+          rawPercent: percentChangeRaw,
         };
       });
 
@@ -283,6 +292,20 @@ const SectoralIndices: React.FC = () => {
     fetchData(true);
   }, [fetchData]);
 
+  // Navigation handler for row clicks
+  const handlePress = (item: IndexModel) => {
+    router.push({
+      pathname: '/pages/detailPages/chartDetails',
+      params: {
+        symbol: item.title,
+        token: item.token,
+        price: item.rawPrice, // Safely pass numeric representation
+        change: item.rawChange,
+        percent: item.rawPercent,
+      },
+    });
+  };
+
   const renderHeader = () => (
     <View style={styles.headerRow}>
       <Text style={[styles.headerText, { flex: 3 }]}>Index</Text>
@@ -293,7 +316,12 @@ const SectoralIndices: React.FC = () => {
   );
 
   const renderItem = ({ item }: { item: IndexModel }) => (
-    <View style={styles.row}>
+    // Replaced View with TouchableOpacity
+    <TouchableOpacity 
+      style={styles.row} 
+      onPress={() => handlePress(item)} 
+      activeOpacity={0.7}
+    >
       <View style={styles.nameCol}>
         <Text style={styles.symbolTitle}>{item.title}</Text>
         <Text style={styles.exchangeText}>{item.exchange}</Text>
@@ -315,7 +343,7 @@ const SectoralIndices: React.FC = () => {
           {item.change}
         </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (

@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { useRouter } from 'expo-router'; // <-- Added useRouter
 import { fetchAngelIndices, AngelQuoteRaw } from '../../services/api/methods/marketService';
 
 const { width } = Dimensions.get('window');
@@ -30,6 +31,10 @@ type IndexModel = {
   percent: string;
   up: boolean;
   chart: number[];
+  // Raw numbers for safe passing to details page
+  rawPrice: number;
+  rawChange: number;
+  rawPercent: number;
 };
 
 const SYMBOLS = [
@@ -161,6 +166,7 @@ const Indices: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   
+  const router = useRouter(); // <-- Initialize Router
   const chartCache = useRef<Map<string, number[]>>(new Map());
   const isMounted = useRef(true);
   const isFetching = useRef(false);
@@ -194,7 +200,10 @@ const Indices: React.FC = () => {
             change: '-', 
             percent: '0.00', 
             up: false, 
-            chart: cachedChart 
+            chart: cachedChart,
+            rawPrice: 0,
+            rawChange: 0,
+            rawPercent: 0,
           };
         }
 
@@ -224,6 +233,9 @@ const Indices: React.FC = () => {
           percent,
           up,
           chart: chartData,
+          rawPrice: currentLTP,
+          rawChange: netChange,
+          rawPercent: percentChange,
         };
       });
 
@@ -249,6 +261,20 @@ const Indices: React.FC = () => {
     setRefreshing(true);
     fetchData(true);
   }, [fetchData]);
+
+  // Route to the Chart Details page
+  const handlePress = (idx: IndexModel) => {
+    router.push({
+      pathname: '/pages/detailPages/chartDetails',
+      params: {
+        symbol: idx.title,
+        token: idx.token,
+        price: idx.rawPrice, // Use raw values so parseFloat doesn't break on commas
+        change: idx.rawChange,
+        percent: idx.rawPercent,
+      },
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -282,6 +308,7 @@ const Indices: React.FC = () => {
               key={idx.id} 
               style={styles.card}
               activeOpacity={0.9}
+              onPress={() => handlePress(idx)} // <-- Add onPress event here
             >
               {/* Top Row: Title & Exchange */}
               <View style={styles.cardHeader}>
