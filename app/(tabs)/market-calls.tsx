@@ -10,9 +10,9 @@ import {
   StatusBar,
   ActivityIndicator,
   FlatList,
-  RefreshControl,
-  ListRenderItem
+  RefreshControl
 } from 'react-native';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,7 +40,8 @@ interface MarketCallData {
   tags: string[];
 }
 
-const TABS = ['Intraday', 'Short', 'Long', 'Options', 'Futures'];
+// Added 'All' so users aren't locked out of unmapped API segments
+const TABS = ['All', 'Intraday', 'Short', 'Long', 'Options', 'Futures'];
 
 // --- Dummy Static Locked Data ---
 const LOCKED_PREMIUM_CALLS: MarketCallData[] = [
@@ -59,7 +60,7 @@ const LOCKED_PREMIUM_CALLS: MarketCallData[] = [
     status: 'Premium',
     isLocked: true,
     action: 'BUY',
-    tags: ['Premium']
+    tags: ['Premium', 'Options'] // Added tags to support filtering
   },
   {
     id: 'locked-2',
@@ -76,7 +77,7 @@ const LOCKED_PREMIUM_CALLS: MarketCallData[] = [
     status: 'Premium',
     isLocked: true,
     action: 'SELL',
-    tags: ['Premium']
+    tags: ['Premium', 'Futures'] // Added tags to support filtering
   }
 ];
 
@@ -84,17 +85,12 @@ const LOCKED_PREMIUM_CALLS: MarketCallData[] = [
 
 const TradeRange = ({ isBuy, isLocked }: { isBuy: boolean; isLocked?: boolean }) => {
   if (isLocked) return null;
-  const color = isBuy ? '#10b981' : '#ef4444'; // Emerald vs Red
+  const color = isBuy ? '#10b981' : '#ef4444'; 
   
   return (
     <View style={styles.rangeContainer}>
-      {/* Background Line */}
       <View style={styles.rangeLineBase} />
-      
-      {/* Active Range (Simulated) */}
       <View style={[styles.rangeLineActive, { backgroundColor: color, width: '60%', left: '20%' }]} />
-      
-      {/* Dots */}
       <View style={[styles.rangeDot, { left: '0%', backgroundColor: '#ef4444' }]} /> 
       <View style={[styles.rangeDot, { left: '20%', backgroundColor: '#f59e0b' }]} /> 
       <View style={[styles.rangeDotRing, { left: '80%', borderColor: color }]}>
@@ -145,11 +141,11 @@ const MarketCard = React.memo<MarketCardProps>(function MarketCard({
           
           <TouchableOpacity onPress={onUpgrade} activeOpacity={0.8}>
              <LinearGradient
-                          colors={['#0a7ea4', '#0ca5d8']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.unlockBtn}
-                        >
+                colors={['#0a7ea4', '#0ca5d8']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.unlockBtn}
+              >
               <Text style={styles.unlockBtnText}>Unlock Now</Text>
               <Ionicons name="arrow-forward" size={14} color="#fff" />
             </LinearGradient>
@@ -159,8 +155,6 @@ const MarketCard = React.memo<MarketCardProps>(function MarketCard({
 
       {/* --- CARD CONTENT --- */}
       <View style={[styles.cardContent, isLocked && styles.blurredContent]}>
-        
-        {/* Header: Badge & Title */}
         <View style={styles.cardHeader}>
           <View style={styles.titleGroup}>
             <View style={[styles.iconPlaceholder, { backgroundColor: isBuy ? '#dcfce7' : '#fee2e2' }]}>
@@ -177,10 +171,8 @@ const MarketCard = React.memo<MarketCardProps>(function MarketCard({
           </View>
         </View>
 
-        {/* Divider */}
         <View style={styles.divider} />
 
-        {/* Middle: LTP & Range */}
         <View style={styles.midSection}>
           <View style={styles.ltpContainer}>
              <Text style={styles.labelLtp}>LTP</Text>
@@ -195,27 +187,22 @@ const MarketCard = React.memo<MarketCardProps>(function MarketCard({
           </View>
         </View>
 
-        {/* Bottom: Stats Grid */}
         <View style={styles.statsGrid}>
-          {/* STOP LOSS */}
           <View style={styles.statItem}>
              <Text style={styles.statLabel}>Stop Loss</Text>
              <Text style={[styles.statValue, { color: '#ef4444' }]}>{data.sl}</Text>
           </View>
           
-          {/* ENTRY */}
           <View style={[styles.statItem, styles.statBorder]}>
              <Text style={styles.statLabel}>Entry</Text>
              <Text style={[styles.statValue, { color: '#f59e0b' }]}>{data.entry}</Text>
           </View>
           
-          {/* TARGET */}
           <View style={styles.statItem}>
              <Text style={styles.statLabel}>Target</Text>
              <Text style={[styles.statValue, { color: '#10b981' }]}>{data.target}</Text>
           </View>
         </View>
-
       </View>
     </TouchableOpacity>
   );
@@ -224,7 +211,7 @@ const MarketCard = React.memo<MarketCardProps>(function MarketCard({
 // --- Main Screen Component ---
 const MarketCalls = () => {
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('Intraday');
+  const [activeTab, setActiveTab] = useState('All');
 
   const [marketCalls, setMarketCalls] = useState<MarketCallData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -243,7 +230,6 @@ const MarketCalls = () => {
         const sl = parseFloat(tip.stop_loss || '0');
         const ltp = parseFloat(tip.current_price || tip.cmp_price || '0');
         
-        // Determine Action
         const isBuy = target >= entry;
 
         const dateObj = new Date(tip.created_at || new Date());
@@ -251,6 +237,10 @@ const MarketCalls = () => {
         const time = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
         const isLocked = tip.is_premium || tip.status === 'Premium' || false;
+
+        // Smart Tag Extraction: Attempt to read segment/type from API, fallback to Intraday
+        const rawSegment = tip.segment || tip.call_type || tip.type || 'Intraday';
+        const formattedSegment = rawSegment.charAt(0).toUpperCase() + rawSegment.slice(1).toLowerCase();
 
         return {
           id: tip.id,
@@ -267,13 +257,11 @@ const MarketCalls = () => {
           status: tip.status || 'Live',
           isLocked: isLocked,
           action: isBuy ? 'BUY' : 'SELL',
-          tags: isLocked ? ['Premium'] : ['Intraday']
+          tags: isLocked ? ['Premium', formattedSegment] : [formattedSegment]
         };
       });
 
-      // Combine with locked calls for demo if needed, or just use API
       const combined = [...formattedCalls.reverse(), ...LOCKED_PREMIUM_CALLS];
-      // Deduping just in case
       const uniqueCalls = Array.from(new Map(combined.map(item => [item.id, item])).values());
       
       setMarketCalls(uniqueCalls);
@@ -291,71 +279,21 @@ const MarketCalls = () => {
   const onRefresh = () => { setRefreshing(true); fetchMarketCalls(); };
   const handleUpgrade = () => router.push('/pages/settingsInnerPages/pricingPlans');
   
+  // --- Filtering Logic (Search + Tabs combined) ---
   const filteredCalls = useMemo(() => {
-    return marketCalls.filter(item => item.title.toLowerCase().includes(search.toLowerCase()));
-  }, [marketCalls, search]);
+    return marketCalls.filter(item => {
+      // 1. Search filter
+      const matchesSearch = item.title.toLowerCase().includes(search.toLowerCase());
+      
+      // 2. Tab filter
+      const matchesTab = activeTab === 'All' || item.tags.some(tag => tag.toLowerCase() === activeTab.toLowerCase());
+      
+      return matchesSearch && matchesTab;
+    });
+  }, [marketCalls, search, activeTab]);
 
+  // Highlights pull from the filtered pool
   const highlights = useMemo(() => filteredCalls.slice(0, 5), [filteredCalls]);
-
-  // --- Render Header ---
-  const ListHeader = useCallback(() => (
-    <View style={styles.listHeader}>
-      <View style={styles.searchContainer}>
-        <Search value={search} onChangeText={setSearch} />
-      </View>
-
-      {/* Highlights Carousel */}
-      {highlights.length > 0 && (
-        <View style={styles.highlightsSection}>
-          <View style={styles.sectionHeader}>
-             <Text style={styles.sectionTitle}>Featured Calls</Text>
-            
-          </View>
-          <FlatList
-            horizontal
-            data={highlights}
-            keyExtractor={(item) => `highlight-${item.id}`}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16 }}
-            snapToInterval={width * 0.82 + 16}
-            decelerationRate="fast"
-            renderItem={({ item }) => (
-              <MarketCard
-                data={item}
-                style={{ width: width * 0.82, marginRight: 16 }}
-                onUpgrade={handleUpgrade}
-              />
-            )}
-          />
-        </View>
-      )}
-
-      {/* Tabs */}
-      <View style={styles.tabsSection}>
-         <View style={styles.sectionHeader}>
-             <Text style={styles.sectionTitle}>Market Feed</Text>
-          </View>
-        <FlatList
-          horizontal
-          data={TABS}
-          keyExtractor={(item) => item}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabList}
-          renderItem={({ item }) => {
-            const isActive = activeTab === item;
-            return (
-              <TouchableOpacity
-                onPress={() => setActiveTab(item)}
-                style={[styles.tabPill, isActive && styles.tabPillActive]}
-              >
-                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{item}</Text>
-              </TouchableOpacity>
-            );
-          }}
-        />
-      </View>
-    </View>
-  ), [search, highlights, activeTab]);
 
   if (loading && !refreshing) {
     return (
@@ -369,6 +307,39 @@ const MarketCalls = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <View style={styles.container}>
+        
+        {/* --- STICKY HEADER (Prevents Search Focus Loss) --- */}
+        <View style={styles.stickyHeader}>
+          <View style={styles.searchContainer}>
+            <Search value={search} onChangeText={setSearch} />
+          </View>
+
+          <View style={styles.tabsSection}>
+            <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Market Feed</Text>
+            </View>
+            <FlatList
+              horizontal
+              data={TABS}
+              keyExtractor={(item) => item}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabList}
+              renderItem={({ item }) => {
+                const isActive = activeTab === item;
+                return (
+                  <TouchableOpacity
+                    onPress={() => setActiveTab(item)}
+                    style={[styles.tabPill, isActive && styles.tabPillActive]}
+                  >
+                    <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{item}</Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+
+        {/* --- MAIN SCROLLABLE FEED --- */}
         <FlatList
           data={filteredCalls}
           keyExtractor={(item) => `call-${item.id}`}
@@ -380,9 +351,34 @@ const MarketCalls = () => {
               />
             </View>
           )}
-          ListHeaderComponent={ListHeader}
+          // Highlights scroll away naturally with the feed
+          ListHeaderComponent={
+            highlights.length > 0 ? (
+              <View style={styles.highlightsSection}>
+                <View style={styles.sectionHeader}>
+                   <Text style={styles.sectionTitle}>Featured Calls</Text>
+                </View>
+                <FlatList
+                  horizontal
+                  data={highlights}
+                  keyExtractor={(item) => `highlight-${item.id}`}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: 16 }}
+                  snapToInterval={width * 0.82 + 16}
+                  decelerationRate="fast"
+                  renderItem={({ item }) => (
+                    <MarketCard
+                      data={item}
+                      style={{ width: width * 0.82, marginRight: 16 }}
+                      onUpgrade={handleUpgrade}
+                    />
+                  )}
+                />
+              </View>
+            ) : null
+          }
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4f46e5"/>}
-          contentContainerStyle={{ paddingBottom: 80 }}
+          contentContainerStyle={{ paddingBottom: 80, paddingTop: 10 }}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>No active calls found</Text>
@@ -396,12 +392,18 @@ const MarketCalls = () => {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
-  container: { flex: 1, paddingTop: 20},
+  container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
   loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
-  /* Header Areas */
-  listHeader: { marginBottom: 10 },
-  searchContainer: { paddingHorizontal: 0, paddingVertical: 12 },
+  /* Sticky Header Areas */
+  stickyHeader: {
+    backgroundColor: '#F8FAFC',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    zIndex: 10,
+  },
+  searchContainer: { paddingHorizontal: 1, paddingVertical: 12 },
   sectionHeader: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
@@ -410,10 +412,10 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
-  highlightsSection: { marginBottom: 24 },
+  highlightsSection: { marginBottom: 24, marginTop: 10 },
   
   /* Tabs */
-  tabsSection: { marginBottom: 16 },
+  tabsSection: { marginBottom: 4 },
   tabList: { paddingHorizontal: 16 },
   tabPill: {
     paddingHorizontal: 18,
@@ -431,11 +433,10 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 13, fontWeight: '600', color: '#64748b' },
   tabTextActive: { color: '#fff' },
 
-  /* --- CARD STYLES (Copied & Adapted) --- */
+  /* --- CARD STYLES --- */
   card: {
     backgroundColor: '#fff',
     borderRadius: 24,
-    // Soft Shadow matches example
     shadowColor: '#64748b',
     shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 8 },

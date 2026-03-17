@@ -135,13 +135,13 @@ const SettingsPage = () => {
   const isKycVerified = kycStatus === 'verified' || kycStatus === 'approved';
 
   const menuItems: MenuItem[] = [
-    {
-      id: 1,
-      icon: 'credit-card',
-      text: 'Payment & Invoices',
-      type: 'feather',
-      route: '/pages/settingsInnerPages/paymentAndInvoices',
-    },
+    // {
+    //   id: 1,
+    //   icon: 'credit-card',
+    //   text: 'Payment & Invoices',
+    //   type: 'feather',
+    //   route: '/pages/settingsInnerPages/paymentAndInvoices',
+    // },
     {
       id: 2,
       icon: 'file-text',
@@ -289,12 +289,12 @@ const SettingsPage = () => {
             </View>
 
             <View style={styles.actionButtonsContainer}>
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={styles.primaryBtn}
                 onPress={() => router.push('/pages/settingsInnerPages/pricingPlans')}
               >
                 <Text style={styles.primaryBtnText}>Upgrade Plan</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
 
               {!isKycVerified ? (
                 <TouchableOpacity

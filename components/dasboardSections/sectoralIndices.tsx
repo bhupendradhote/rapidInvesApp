@@ -8,10 +8,8 @@ import {
   FlatList,
   RefreshControl,
   Dimensions,
-  TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { useRouter } from 'expo-router'; // <-- Imported useRouter
 import {
   fetchAngelIndices,
   AngelQuoteRaw,
@@ -33,7 +31,7 @@ type IndexModel = {
   percentChange: string;
   up: boolean;
   chart: number[];
-  // Raw numbers for safe passing to details page
+  // Raw numbers
   rawPrice: number;
   rawChange: number;
   rawPercent: number;
@@ -169,7 +167,6 @@ const SectoralIndices: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  const router = useRouter(); // <-- Initialized Router
   const chartCache = useRef<Map<string, number[]>>(new Map());
   const isMounted = useRef(true);
   
@@ -292,20 +289,6 @@ const SectoralIndices: React.FC = () => {
     fetchData(true);
   }, [fetchData]);
 
-  // Navigation handler for row clicks
-  const handlePress = (item: IndexModel) => {
-    router.push({
-      pathname: '/pages/detailPages/chartDetails',
-      params: {
-        symbol: item.title,
-        token: item.token,
-        price: item.rawPrice, // Safely pass numeric representation
-        change: item.rawChange,
-        percent: item.rawPercent,
-      },
-    });
-  };
-
   const renderHeader = () => (
     <View style={styles.headerRow}>
       <Text style={[styles.headerText, { flex: 3 }]}>Index</Text>
@@ -316,12 +299,7 @@ const SectoralIndices: React.FC = () => {
   );
 
   const renderItem = ({ item }: { item: IndexModel }) => (
-    // Replaced View with TouchableOpacity
-    <TouchableOpacity 
-      style={styles.row} 
-      onPress={() => handlePress(item)} 
-      activeOpacity={0.7}
-    >
+    <View style={styles.row}>
       <View style={styles.nameCol}>
         <Text style={styles.symbolTitle}>{item.title}</Text>
         <Text style={styles.exchangeText}>{item.exchange}</Text>
@@ -343,7 +321,7 @@ const SectoralIndices: React.FC = () => {
           {item.change}
         </Text>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   return (

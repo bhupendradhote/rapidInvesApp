@@ -10,6 +10,7 @@ import {
   Modal,
   TouchableWithoutFeedback
 } from 'react-native';
+
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Chat from '@/components/includes/chat'; 
@@ -24,11 +25,12 @@ export default function OtherPagesInc({ children }: OtherPagesIncProps) {
 
   const activeColor = "#0a7ea4"; 
 
+  // 1. Production Fix: Shortened labels to prevent text wrapping/squishing
   const navItems = [
-    { name: 'Latest News', icon: 'newspaper', route: '/latest-news' },
-    { name: 'Announcement', icon: 'campaign', route: '/announcements' },
-    { name: 'Dashboard', icon: 'dashboard', route: '/' }, // Index
-    { name: 'Market Calls', icon: 'show-chart', route: '/market-calls' },
+    { name: 'News', icon: 'newspaper', route: '/latest-news' },
+    { name: 'Alerts', icon: 'campaign', route: '/announcements' },
+    { name: 'Home', icon: 'dashboard', route: '/' }, 
+    { name: 'Calls', icon: 'show-chart', route: '/market-calls' },
     { name: 'Settings', icon: 'settings', route: '/settings' },
   ];
 
@@ -45,7 +47,6 @@ export default function OtherPagesInc({ children }: OtherPagesIncProps) {
           <Ionicons name="chevron-back" size={24} color="#000" />
         </TouchableOpacity>
 
-        {/* Updated Route Here */}
         <TouchableOpacity
           style={styles.headerButton}
           onPress={() => router.push('/pages/notification/allNotifications')}
@@ -55,18 +56,21 @@ export default function OtherPagesInc({ children }: OtherPagesIncProps) {
         </TouchableOpacity>
       </View>
 
+      {/* --- CONTENT --- */}
       <View style={styles.contentContainer}>
         {children}
       </View>
 
+      {/* --- FAB --- */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: activeColor }]}
         onPress={() => setIsChatOpen(true)}
         activeOpacity={0.8}
       >
-        <MaterialIcons name="chat" size={25} color="white" />
+        <MaterialIcons name="chat" size={24} color="white" />
       </TouchableOpacity>
 
+      {/* --- CUSTOM BOTTOM NAV --- */}
       <View style={styles.bottomNav}>
         {navItems.map((item, index) => (
           <TouchableOpacity 
@@ -83,6 +87,7 @@ export default function OtherPagesInc({ children }: OtherPagesIncProps) {
         ))}
       </View>
 
+      {/* --- MODAL --- */}
       <Modal
         animationType="slide"
         transparent={true} 
@@ -95,15 +100,23 @@ export default function OtherPagesInc({ children }: OtherPagesIncProps) {
             </TouchableWithoutFeedback>
 
             <View style={styles.modalContainer}>
-                <Chat />
+                {/* 2. Production Fix: Header moved inside the container to prevent clipping */}
+                <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Support Chat</Text>
+                    <TouchableOpacity 
+                        style={styles.closeButton} 
+                        onPress={() => setIsChatOpen(false)}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <MaterialIcons name="close" size={24} color="#333" />
+                    </TouchableOpacity>
+                </View>
 
-                <TouchableOpacity 
-                    style={styles.closeButton} 
-                    onPress={() => setIsChatOpen(false)}
-                    activeOpacity={0.7}
-                >
-                    <MaterialIcons name="close" size={22} color="#333" />
-                </TouchableOpacity>
+                {/* Chat Component takes the rest of the space */}
+                <View style={styles.chatWrapper}>
+                  <Chat />
+                </View>
             </View>
         </View>
       </Modal>
@@ -122,8 +135,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 16, // slightly increased for better edge spacing
     paddingTop: 12,
+    paddingBottom: 8,
     backgroundColor: '#F9FAFB',
   },
   headerButton: {
@@ -144,43 +158,57 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
   },
+  
+  // --- CUSTOM BOTTOM NAV ---
   bottomNav: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     paddingTop: 10,
+    // 3. Production Fix: Safe area padding for bottom of iOS screens
+    paddingBottom: Platform.OS === 'ios' ? 28 : 10, 
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+    elevation: 8, // Add shadow on Android
+    shadowColor: "#000", // Shadow for iOS
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   navItem: {
+    flex: 1, // Replaced width: 18% with flex: 1 for perfectly equal distribution
     alignItems: 'center',
     justifyContent: 'center',
-    width: '18%', 
   },
   navLabel: {
-    fontSize: 9, 
+    fontSize: 10, // Bumped slightly since we shortened words
     marginTop: 4,
     color: '#6B7280',
     fontWeight: '500',
     textAlign: 'center',
   },
+  
+  // --- FAB ---
   fab: {
     position: "absolute",
-    bottom: 80, 
+    // 4. Production Fix: Platform specific heights to clear the bottom nav
+    bottom: Platform.OS === 'ios' ? 95 : 85, 
     right: 20,
-    width: 52,
-    height: 52,
-    borderRadius: 30,
+    width: 56, // Standardized touch target size
+    height: 56,
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 5, 
+    elevation: 6, 
     shadowColor: "#000", 
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
     zIndex: 1000,
   },
+  
+  // --- MODAL ---
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)', 
@@ -191,27 +219,39 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: "#fff",
-    height: '90%',
+    height: '85%',
     width: '100%',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 10,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
   },
   closeButton: {
-    position: 'absolute',
-    top: -40, 
-    right: 15,
-    zIndex: 99999,
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: '#f5f5f5', 
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
+  },
+  chatWrapper: {
+    flex: 1,
   }
 });

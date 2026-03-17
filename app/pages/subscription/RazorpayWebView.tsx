@@ -8,6 +8,7 @@ import {
   Platform,
   SafeAreaView,
 } from 'react-native';
+
 import { WebView } from 'react-native-webview';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import subscriptionService from '@/services/api/methods/subscriptionService';

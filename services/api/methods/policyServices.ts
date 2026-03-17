@@ -35,14 +35,11 @@ const policyService = {
     return response.data;
   },
 
-  // Consolidated to handle both ID or Slug based on what is passed
   getPolicyDetails: async (identifier: string | number): Promise<PolicyDetailResponse> => {
     if (!identifier || String(identifier).trim() === '') {
       throw new Error('Policy identifier (ID or slug) is required');
     }
 
-    // FIX: Using SLUG_POLICY to resolve the TypeScript error
-    // Typecast to 'any' purely to prevent strict TS from blocking the fallback
     const endpoints: any = API_ENDPOINTS.POLICIES;
     const endpointStr = endpoints.SLUG_POLICY || `/policies/:slug`;
     

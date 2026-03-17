@@ -1,6 +1,14 @@
 import { Tabs } from "expo-router";
 import React, { useState } from "react";
-import { View, TouchableOpacity, StyleSheet, Modal, Platform, TouchableWithoutFeedback } from "react-native";
+import { 
+  View, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Modal, 
+  Platform, 
+  TouchableWithoutFeedback,
+  Text 
+} from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 
 import { HapticTab } from "@/components/haptic-tab";
@@ -16,48 +24,60 @@ export default function TabLayout() {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.container}>
       <Tabs
         initialRouteName="index"
         screenOptions={{
           tabBarActiveTintColor: activeColor,
           headerShown: false,
           tabBarButton: HapticTab,
+          // 1. Production Fix: Prevent tabs from collapsing on small Android screens
+          tabBarLabelStyle: {
+            fontSize: 10,
+            fontWeight: "500",
+            paddingBottom: 4,
+          },
+          tabBarStyle: {
+            height: Platform.OS === "android" ? 65 : 85,
+            paddingTop: Platform.OS === "android" ? 8 : 8,
+            paddingBottom: Platform.OS === "android" ? 10 : 28,
+            elevation: 8, // Adds shadow to tab bar on Android
+          },
         }}
       >
         <Tabs.Screen
           name="latest-news"
           options={{
-            title: "Latest News",
+            title: "News", // Shortened for better fit
             tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="newspaper" size={size ?? 26} color={color} />
+              <MaterialIcons name="newspaper" size={size ?? 24} color={color} />
             ),
           }}
         />
         <Tabs.Screen
           name="announcements"
           options={{
-            title: "Announcement",
+            title: "Alerts", // Shortened for better fit
             tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="campaign" size={size ?? 26} color={color} />
+              <MaterialIcons name="campaign" size={size ?? 24} color={color} />
             ),
           }}
         />
         <Tabs.Screen
           name="index"
           options={{
-            title: "Dashboard",
+            title: "Home", // Shortened for better fit
             tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="dashboard" size={size ?? 26} color={color} />
+              <MaterialIcons name="dashboard" size={size ?? 24} color={color} />
             ),
           }}
         />
         <Tabs.Screen
           name="market-calls"
           options={{
-            title: "Market Calls",
+            title: "Calls", // Shortened for better fit
             tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="show-chart" size={size ?? 26} color={color} />
+              <MaterialIcons name="show-chart" size={size ?? 24} color={color} />
             ),
           }}
         />
@@ -66,18 +86,19 @@ export default function TabLayout() {
           options={{
             title: "Settings",
             tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="settings" size={size ?? 26} color={color} />
+              <MaterialIcons name="settings" size={size ?? 24} color={color} />
             ),
           }}
         />
       </Tabs>
 
+      {/* 2. Production Fix: FAB positioning is dynamically adjusted based on platform */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: activeColor }]}
         onPress={() => setIsChatOpen(true)}
         activeOpacity={0.8}
       >
-        <MaterialIcons name="chat" size={25} color="white" />
+        <MaterialIcons name="chat" size={24} color="white" />
       </TouchableOpacity>
 
       <Modal
@@ -87,25 +108,28 @@ export default function TabLayout() {
         onRequestClose={() => setIsChatOpen(false)}
       >
         <View style={styles.modalOverlay}>
-            
             <TouchableWithoutFeedback onPress={() => setIsChatOpen(false)}>
                 <View style={styles.modalBackdrop} />
             </TouchableWithoutFeedback>
 
             <View style={styles.modalContainer}>
-                <View >
-                    <View  />
+                {/* 3. Production Fix: Clean header inside the container to prevent clipping */}
+                <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Support Chat</Text>
+                    <TouchableOpacity 
+                        style={styles.closeButton} 
+                        onPress={() => setIsChatOpen(false)}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <MaterialIcons name="close" size={24} color="#333" />
+                    </TouchableOpacity>
                 </View>
 
-                <Chat />
-
-                <TouchableOpacity 
-                    style={styles.closeButton} 
-                    onPress={() => setIsChatOpen(false)}
-                    activeOpacity={0.7}
-                >
-                    <MaterialIcons name="close" size={22} color="#333" />
-                </TouchableOpacity>
+                {/* Chat Component takes the rest of the space */}
+                <View style={styles.chatWrapper}>
+                  <Chat />
+                </View>
             </View>
         </View>
       </Modal>
@@ -114,20 +138,24 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   fab: {
     position: "absolute",
-    bottom: 60, 
+    // Ensure it sits well above the tab bar on both OS's
+    bottom: Platform.OS === 'ios' ? 100 : 85, 
     right: 20,
-    width: 52,
-    height: 52,
-    borderRadius: 30,
+    width: 56, // Slightly larger standard FAB size
+    height: 56,
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 5, 
-    shadowColor: "#000", 
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    elevation: 6, // Android shadow
+    shadowColor: "#000", // iOS shadow
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
     zIndex: 1000,
   },
   
@@ -141,29 +169,39 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: "#fff",
-    height: '90%',
+    height: '85%', // Slightly reduced to ensure status bar visibility
     width: '100%',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    // overflow: 'hidden',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 10,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 20,
   },
-  
-  // --- Close Button ---
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+  },
   closeButton: {
-    position: 'absolute',
-    top: -32, 
-    right: 10,
-    zIndex: 99999,
-    width: 30,
-    height: 30,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#f5f5f5', 
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  chatWrapper: {
+    flex: 1,
   }
 });

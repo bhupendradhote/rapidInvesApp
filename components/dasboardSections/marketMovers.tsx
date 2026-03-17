@@ -9,7 +9,6 @@ import {
   FlatList,
 } from 'react-native';
 import { fetchGainersLosers, AngelGainerLoserRaw } from '../../services/api/methods/marketService';
-import { useRouter } from 'expo-router';
 
 type TabOption = 'gainers' | 'losers';
 
@@ -20,7 +19,6 @@ const MarketMovers: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabOption>('gainers');
 
   const isMounted = useRef(true);
-  const router = useRouter(); // Initialize router for navigation
 
   useEffect(() => {
     isMounted.current = true;
@@ -158,28 +156,9 @@ const MarketMovers: React.FC = () => {
 
     const displayName = formatSymbol((item as any).tradingSymbol ?? (item as any).name ?? '');
     const currentPrice = (item as any).ltp ?? (item as any).last ?? 0;
-    const token = (item as any).symbolToken;
-
-    // Route to the Chart Details page
-    const handlePress = () => {
-      router.push({
-        pathname: '/pages/detailPages/chartDetails',
-        params: {
-          symbol: displayName,
-          token: token,
-          price: currentPrice,
-          change: net,
-          percent: percent,
-        },
-      });
-    };
 
     return (
-      <TouchableOpacity 
-        style={styles.rowWrapper} 
-        onPress={handlePress} 
-        activeOpacity={0.7}
-      >
+      <View style={styles.rowWrapper}>
         <View style={styles.moverRow}>
           <View style={styles.nameCol}>
             <Text style={styles.moverTitle} numberOfLines={1}>
@@ -196,7 +175,7 @@ const MarketMovers: React.FC = () => {
           </View>
         </View>
         {index < currentList.length - 1 && <View style={styles.separator} />}
-      </TouchableOpacity>
+      </View>
     );
   };
 

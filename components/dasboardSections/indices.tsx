@@ -7,10 +7,8 @@ import {
   ActivityIndicator,
   ScrollView,
   RefreshControl,
-  TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { useRouter } from 'expo-router'; // <-- Added useRouter
 import { fetchAngelIndices, AngelQuoteRaw } from '../../services/api/methods/marketService';
 
 const { width } = Dimensions.get('window');
@@ -31,7 +29,7 @@ type IndexModel = {
   percent: string;
   up: boolean;
   chart: number[];
-  // Raw numbers for safe passing to details page
+  // Raw numbers
   rawPrice: number;
   rawChange: number;
   rawPercent: number;
@@ -166,7 +164,6 @@ const Indices: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   
-  const router = useRouter(); // <-- Initialize Router
   const chartCache = useRef<Map<string, number[]>>(new Map());
   const isMounted = useRef(true);
   const isFetching = useRef(false);
@@ -262,20 +259,6 @@ const Indices: React.FC = () => {
     fetchData(true);
   }, [fetchData]);
 
-  // Route to the Chart Details page
-  const handlePress = (idx: IndexModel) => {
-    router.push({
-      pathname: '/pages/detailPages/chartDetails',
-      params: {
-        symbol: idx.title,
-        token: idx.token,
-        price: idx.rawPrice, // Use raw values so parseFloat doesn't break on commas
-        change: idx.rawChange,
-        percent: idx.rawPercent,
-      },
-    });
-  };
-
   return (
     <View style={styles.container}>
       {/* Header Section */}
@@ -304,11 +287,9 @@ const Indices: React.FC = () => {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4f46e5" />}
         >
           {(indices ?? []).map((idx) => (
-            <TouchableOpacity 
+            <View 
               key={idx.id} 
               style={styles.card}
-              activeOpacity={0.9}
-              onPress={() => handlePress(idx)} // <-- Add onPress event here
             >
               {/* Top Row: Title & Exchange */}
               <View style={styles.cardHeader}>
@@ -337,7 +318,7 @@ const Indices: React.FC = () => {
               <View style={styles.chartWrapper}>
                 <Sparkline data={idx.chart} up={idx.up} />
               </View>
-            </TouchableOpacity>
+            </View>
           ))}
         </ScrollView>
       )}

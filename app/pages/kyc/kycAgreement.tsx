@@ -328,7 +328,7 @@ export default function KycAgreementPage() {
         </View>
 
         {/* Signature Section */}
-        <Text style={styles.sectionLabel}>USER SIGNATURE</Text>
+        {/* <Text style={styles.sectionLabel}>USER SIGNATURE</Text>
         <View style={styles.signatureCard}>
             {signatureImage ? (
                 <View style={styles.signedContainer}>
@@ -344,10 +344,10 @@ export default function KycAgreementPage() {
                     <Text style={styles.unsignedText}>Signature will appear here once KYC is completed.</Text>
                 </View>
             )}
-        </View>
+        </View> */}
 
         {/* Footer Actions */}
-        <View style={styles.footerActions}>
+        {/* <View style={styles.footerActions}>
             <TouchableOpacity 
                 style={[styles.outlineBtn, !isComplete && { opacity: 0.5 }]} 
                 onPress={() => isComplete && Alert.alert('Download', 'Downloading PDF...')}
@@ -358,7 +358,7 @@ export default function KycAgreementPage() {
                     Download Agreement
                 </Text>
             </TouchableOpacity>
-        </View>
+        </View> */}
 
         <View style={{height: 40}} />
       </ScrollView>

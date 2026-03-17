@@ -211,7 +211,7 @@ export async function fetchAngelQuotes(symbolTokens?: string[]): Promise<AngelQu
  */
 export async function fetchAngelHistory(params: {
   symbolToken: string;
-  exchange: 'NSE' | 'BSE';
+  exchange: 'NSE' | 'BSE' | 'NSE_INDEX';
   interval: string;
   from: string;
   to: string;
@@ -245,15 +245,6 @@ export async function fetchAngelHistory(params: {
     return [];
   }
 }
-
-// =========================================================
-// NEW: Equity Search Integration (Matching Backend Routes)
-// =========================================================
-
-/**
- * Search Equity Script Names (Autocomplete)
- * Route: /search-equity-names
- */
 export async function searchEquityNames(query: string): Promise<string[]> {
   if (query.length < 2) return [];
   

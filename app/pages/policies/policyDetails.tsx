@@ -9,6 +9,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 
@@ -18,6 +19,35 @@ const THEME_COLOR = '#0a7ea4';
 const BG_COLOR = '#F8F9FA';
 const CARD_BG = '#FFFFFF';
 
+// Extend the imported Policy type to include the missing properties.
+// This satisfies TypeScript without requiring changes to the external service file.
+export type ExtendedPolicy = Policy & {
+  active_content?: {
+    content?: string;
+    updated_at?: string;
+  };
+  content?: string;
+  description?: string;
+  title?: string;
+  name?: string;
+  updated_at?: string;
+  created_at?: string;
+};
+
+const stripHtmlTags = (htmlString?: string) => {
+  if (!htmlString) return '';
+  return htmlString
+    .replace(/<li>/g, '• ') 
+    .replace(/<\/li>/g, '\n') 
+    .replace(/<\/p>/g, '\n\n') 
+    .replace(/<br\s*[\/]?>/gi, '\n') 
+    .replace(/<\/h[1-6]>/g, '\n\n') 
+    .replace(/<[^>]+>/g, '') 
+    .replace(/&nbsp;/g, ' ') 
+    .replace(/\n\s*\n/g, '\n\n') 
+    .trim();
+};
+
 const PolicyDetails = () => {
   const router = useRouter();
   
@@ -25,11 +55,12 @@ const PolicyDetails = () => {
   
   const identifier = slug || id;
 
-  const [policy, setPolicy] = useState<Policy | null>(null);
+  // Use the ExtendedPolicy type here
+  const [policy, setPolicy] = useState<ExtendedPolicy | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+ useEffect(() => {
     let mounted = true;
 
     const fetchPolicy = async () => {
@@ -45,14 +76,18 @@ const PolicyDetails = () => {
         if (mounted) setLoading(true);
         
         const response = await policyService.getPolicyDetails(identifier);
-        const data = response?.data ?? (response as any);
+ 
+        // FIX: Cast response to 'any' to bypass TS strictness on the nested API wrapper,
+        // then enforce the ExtendedPolicy type on the final extracted object.
+        const rawResponse = response as any;
+        const policyData = (rawResponse?.data?.data || rawResponse?.data || rawResponse) as ExtendedPolicy;
 
-        if (!data) {
+        if (!policyData || !policyData.name) {
           throw new Error('No policy data received');
         }
 
         if (mounted) {
-          setPolicy(data);
+          setPolicy(policyData);
           setError(null);
         }
       } catch (err: any) {
@@ -84,8 +119,11 @@ const PolicyDetails = () => {
   };
 
   const title = policy?.title || policy?.name || 'Policy Details';
-  const content = policy?.content || policy?.description || 'No content available.';
-  const lastUpdated = getFormattedDate(policy?.updated_at || policy?.created_at);
+  
+  const rawContent = policy?.active_content?.content || policy?.content || policy?.description || 'No content available.';
+  const displayContent = stripHtmlTags(rawContent);
+
+  const lastUpdated = getFormattedDate(policy?.active_content?.updated_at || policy?.updated_at || policy?.created_at);
 
   if (loading) {
     return (
@@ -132,7 +170,7 @@ const PolicyDetails = () => {
           <Text style={styles.policyTitle}>{String(title)}</Text>
           <Text style={styles.dateText}>Last updated: {String(lastUpdated)}</Text>
           <View style={styles.divider} />
-          <Text style={styles.policyContent}>{String(content)}</Text>
+          <Text style={styles.policyContent}>{String(displayContent)}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

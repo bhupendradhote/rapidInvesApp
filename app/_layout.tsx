@@ -1,8 +1,7 @@
 // app/_layout.tsx
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Animated } from 'react-native';
+import React, { useEffect } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
@@ -17,54 +16,26 @@ function RootLayoutNav() {
   const router = useRouter();
   const segments = useSegments();
   const { userToken, isLoading } = useAuth();
-
-  const opacity = useRef(new Animated.Value(0)).current;
-  const [readyToShow, setReadyToShow] = useState(false);
-  const hasHiddenSplashRef = useRef(false);
+  const rootNavigationState = useRootNavigationState();
+  const isNavigationReady = rootNavigationState?.key != null;
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !isNavigationReady) return;
 
-    (async () => {
-      const inAuthGroup = segments?.[0] === 'pages' && segments?.[1] === 'auth';
+    const inAuthGroup = segments?.[0] === 'pages' && segments?.[1] === 'auth';
 
-      try {
-        if (userToken && inAuthGroup) {
-          await router.replace('/(tabs)');
-        } else if (!userToken && !inAuthGroup) {
-          await router.replace('/pages/auth/welcome');
-        } else {
-        }
-      } catch {
-      }
-
-      await new Promise((res) => requestAnimationFrame(() => res(undefined)));
-
-      setReadyToShow(true);
-    })();
-  }, [isLoading, userToken, segments]);
+    if (userToken && inAuthGroup) {
+      router.replace('/(tabs)');
+    } else if (!userToken && !inAuthGroup) {
+      router.replace('/pages/auth/welcome');
+    }
+  }, [isLoading, userToken, segments, isNavigationReady]);
 
   useEffect(() => {
-    if (!readyToShow) return;
-    if (hasHiddenSplashRef.current) return;
-
-    (async () => {
-      try {
-        // Hide native splash
-        await SplashScreen.hideAsync();
-      } catch {
-        // ignore hide errors
-      } finally {
-        hasHiddenSplashRef.current = true;
-        // Fade in app content
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-      }
-    })();
-  }, [readyToShow, opacity]);
+    if (!isLoading && isNavigationReady) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isLoading, isNavigationReady]);
 
   if (isLoading) {
     return null;
@@ -72,18 +43,14 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Animated.View style={{ flex: 1, opacity }}>
-        <View style={{ flex: 1 }}>
-          <Stack>
-            <Stack.Screen name="pages/auth/welcome" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="pages/auth/loginRegister" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-          </Stack>
-          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        </View>
-      </Animated.View>
+      <Stack>
+        <Stack.Screen name="pages/auth/welcome" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="pages/auth/loginRegister" options={{ headerShown: false }} />
+        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+      </Stack>
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>
   );
 }
