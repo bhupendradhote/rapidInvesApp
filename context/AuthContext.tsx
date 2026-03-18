@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { storage } from '../../services/storage'; 
+import { storage } from '../services/storage'; 
 
 type AuthContextType = {
   userToken: string | null;

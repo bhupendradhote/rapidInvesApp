@@ -4,16 +4,24 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Platform,
   StatusBar,
   Modal,
   TouchableWithoutFeedback
 } from 'react-native';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Chat from '@/components/includes/chat'; 
+
+const insets = useSafeAreaInsets(); 
+
+  const BASE_TAB_HEIGHT = Platform.OS === "android" ? 60 : 65;
+
+  const tabHeight = BASE_TAB_HEIGHT + insets.bottom;
+  const fabBottom = tabHeight + 15; 
 
 interface OtherPagesIncProps {
   children: React.ReactNode;
@@ -131,6 +139,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
+  tabBarStyle: {
+              backgroundColor: '#ffffff',
+              height: tabHeight,              
+              paddingTop: Platform.OS === "android" ? 0 : 4,
+              paddingBottom: Platform.OS === "android" ? insets.bottom + 5 : insets.bottom + 10, 
+              elevation: 8,
+              borderTopColor: '#f0f0f0', 
+            },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

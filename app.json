@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "rapidinvest",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true
     },
@@ -16,6 +15,12 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#E6F4FE"
+      },
+      "softwareKeyboardLayoutMode": "pan",
+      "statusBar": {
+        "translucent": true,
+        "backgroundColor": "#ffffff",
+        "barStyle": "dark-content"
       }
     },
     "web": {

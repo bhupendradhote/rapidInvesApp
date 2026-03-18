@@ -1,15 +1,16 @@
 /* eslint-disable react/no-unescaped-entities */
 import React, { useState, useRef } from 'react';
 import {
-  SafeAreaView, View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
   Platform, StatusBar, KeyboardAvoidingView, TouchableWithoutFeedback,
   Keyboard, ScrollView, Alert, ActivityIndicator, Dimensions
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 
 import { authService } from '../../../services/api/methods/authService';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 
 // --- Constants ---
 const THEME_COLOR = '#0a7ea4';

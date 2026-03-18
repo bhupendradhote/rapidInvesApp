@@ -1,12 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import {
-  SafeAreaView,
   View,
   StyleSheet,
   ScrollView,
   RefreshControl, 
 } from 'react-native';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '@/components/includes/header';
 import Sidebar from '@/components/includes/sidebar';
 import Indices from '@/components/dasboardSections/indices';

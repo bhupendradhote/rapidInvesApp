@@ -12,8 +12,8 @@ import {
   Platform,
   KeyboardAvoidingView,
   StatusBar,
-  SafeAreaView
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';

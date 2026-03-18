@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   View,
   Text,
@@ -9,7 +8,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 

@@ -1,7 +1,6 @@
 // app/KycAgreementPage.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   View,
   Text,
@@ -15,6 +14,7 @@ import {
   Linking,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';

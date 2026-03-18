@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, ActivityIndicator, StyleSheet, SafeAreaView, Text, Platform, StatusBar } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 

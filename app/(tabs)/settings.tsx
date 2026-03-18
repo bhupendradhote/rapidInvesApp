@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   View,
   Text,
@@ -12,6 +11,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons, FontAwesome, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import customerProfileServices from '@/services/api/methods/profileService';
@@ -402,7 +402,7 @@ const SettingsPage = () => {
 const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BG_COLOR },
   container: { flex: 1, backgroundColor: BG_COLOR },
-  scrollContent: { padding: 10, paddingTop: 40 },
+  scrollContent: { padding: 10, paddingTop: 15 },
   headerSection: { marginBottom: 24, alignItems: 'center' },
   pageTitle: { fontSize: 22, fontWeight: '700', color: '#111827', alignSelf: 'flex-start', marginBottom: 12 },
   profileCard: { width: '100%', backgroundColor: CARD_BG, borderRadius: 20, padding: 20, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },

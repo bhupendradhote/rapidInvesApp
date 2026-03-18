@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   Platform,
   StatusBar,
   TextInput,
@@ -15,11 +14,10 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
 
-// IMPORTANT: Adjust this path to match exactly where your services file is located.
 import announcementServices from '@/services/api/methods/announcementService';
 
 // --- Constants ---
@@ -272,10 +270,11 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: BG_COLOR,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
     flex: 1,
+    paddingTop: 15,
+
   },
   centerContainer: {
     flex: 1,

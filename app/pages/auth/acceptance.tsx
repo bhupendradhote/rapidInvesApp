@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   View,
   Text,
@@ -11,12 +10,13 @@ import {
   Alert,
   useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import RenderHtml from 'react-native-render-html';
 
 import { authService } from '../../../services/api/methods/authService';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 
 const THEME_COLOR = '#0a7ea4';
 const BG_COLOR = '#FFFFFF';

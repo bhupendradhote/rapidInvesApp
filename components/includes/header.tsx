@@ -167,11 +167,11 @@ container: {
   paddingBottom: 18,
 
   paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 0,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
-    paddingTop: 40,
+    paddingTop: 15,
 },
 
   headerRow: {

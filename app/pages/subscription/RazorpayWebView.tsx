@@ -6,9 +6,8 @@ import {
   Alert,
   StyleSheet,
   Platform,
-  SafeAreaView,
 } from 'react-native';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import subscriptionService from '@/services/api/methods/subscriptionService';

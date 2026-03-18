@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   View,
   Text,
@@ -12,7 +11,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import blogAndNewsService from '@/services/api/methods/blogAndNewsService';
@@ -182,7 +181,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BG_COLOR,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    paddingTop: 15,
   },
   loaderContainer: {
     flex: 1,

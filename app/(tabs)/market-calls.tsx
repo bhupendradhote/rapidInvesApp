@@ -5,14 +5,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   Platform,
   StatusBar,
   ActivityIndicator,
   FlatList,
   RefreshControl
 } from 'react-native';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,43 +42,7 @@ interface MarketCallData {
 // Added 'All' so users aren't locked out of unmapped API segments
 const TABS = ['All', 'Intraday', 'Short', 'Long', 'Options', 'Futures'];
 
-// --- Dummy Static Locked Data ---
-const LOCKED_PREMIUM_CALLS: MarketCallData[] = [
-  {
-    id: 'locked-1',
-    title: 'BANKNIFTY 45000 CE',
-    date: 'Today',
-    time: '10:30 AM',
-    ltp: '000.00',
-    change: '0.00',
-    changePercent: '(0.00%)',
-    potential: 'High',
-    sl: '000',
-    entry: '000',
-    target: '000',
-    status: 'Premium',
-    isLocked: true,
-    action: 'BUY',
-    tags: ['Premium', 'Options'] // Added tags to support filtering
-  },
-  {
-    id: 'locked-2',
-    title: 'RELIANCE FUT',
-    date: 'Today',
-    time: '09:15 AM',
-    ltp: '000.00',
-    change: '0.00',
-    changePercent: '(0.00%)',
-    potential: 'High',
-    sl: '000',
-    entry: '000',
-    target: '000',
-    status: 'Premium',
-    isLocked: true,
-    action: 'SELL',
-    tags: ['Premium', 'Futures'] // Added tags to support filtering
-  }
-];
+
 
 // --- Sub-Components ---
 
@@ -261,13 +224,12 @@ const MarketCalls = () => {
         };
       });
 
-      const combined = [...formattedCalls.reverse(), ...LOCKED_PREMIUM_CALLS];
+      const combined = [...formattedCalls.reverse()];
       const uniqueCalls = Array.from(new Map(combined.map(item => [item.id, item])).values());
       
       setMarketCalls(uniqueCalls);
     } catch (error) {
       console.error(error);
-      setMarketCalls(LOCKED_PREMIUM_CALLS);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -392,7 +354,7 @@ const MarketCalls = () => {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
-  container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
+  container: { flex: 1, paddingTop: 15 },
   loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   /* Sticky Header Areas */

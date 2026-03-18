@@ -17,7 +17,7 @@ import { Feather, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { authService } from '../../services/api/methods/authService';
 import { storage } from '../../services/storage';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import customerProfileServices from '@/services/api/methods/profileService';
 
 // --- Constants ---

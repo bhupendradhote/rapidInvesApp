@@ -8,12 +8,11 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   LayoutAnimation,
   UIManager,
   ActivityIndicator,
 } from 'react-native';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 
 import chatServices from '@/services/api/methods/chatServices'; // adjust path if needed

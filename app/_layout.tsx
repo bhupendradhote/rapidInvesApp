@@ -1,13 +1,14 @@
 // app/_layout.tsx
+import 'react-native-reanimated'; 
 import React, { useEffect } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { AuthProvider, useAuth } from '@/app/context/AuthContext';
+
+import { AuthProvider, useAuth } from '../context/AuthContext';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -43,13 +44,17 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      
+      {/* 🚀 FIX APPLIED HERE: screenOptions added to the root Stack to kill the top gap */}
+      <Stack screenOptions={{ headerShown: false }}>
+        
         <Stack.Screen name="pages/auth/welcome" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="pages/auth/loginRegister" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal', headerShown: true }} />
         <Stack.Screen name="index" options={{ headerShown: false }} />
       </Stack>
+      
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>
   );
