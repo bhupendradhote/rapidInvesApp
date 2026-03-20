@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Linking, Alert } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import customerProfileServices from '@/services/api/methods/profileService';
@@ -106,6 +107,7 @@ const SettingsPage = () => {
       year: 'numeric',
     });
   };
+  
 
   // --- Derived State ---
   const bsmrId = userData?.bsmr_id || '-';
@@ -156,6 +158,14 @@ const SettingsPage = () => {
       type: 'feather',
       route: '/pages/support/SupportPage',
     },
+     {
+    id: 9,
+    icon: 'trash-2',
+    text: 'Delete Account',
+    type: 'feather',
+    color: '#EF4444',
+    isDestructive: true,
+  },
   ];
 
   const renderIcon = (item: MenuItem) => {
@@ -319,36 +329,39 @@ const SettingsPage = () => {
           <View style={styles.menuContainer}>
             {/* -------- STATIC LINKS -------- */}
             {menuItems.map((item) => (
-              <TouchableOpacity
-                key={`menu-${item.id}`}
-                style={styles.menuRow}
-                activeOpacity={0.7}
-                onPress={() => {
-                  if (item.route) router.push(item.route as any);
-                }}
-              >
-                <View
-                  style={[
-                    styles.menuIconBox,
-                    { backgroundColor: item.isDestructive ? '#FEF2F2' : '#F3F4F6' },
-                  ]}
-                >
-                  {renderIcon(item)}
-                </View>
+  <TouchableOpacity
+    key={`menu-${item.id}`}
+    style={styles.menuRow}
+    activeOpacity={0.7}
+    onPress={() => {
+      if (item.text === 'Delete Account') {
+        handleDeleteAccount();
+      } else if (item.route) {
+        router.push(item.route as any);
+      }
+    }}
+  >
+    <View
+      style={[
+        styles.menuIconBox,
+        { backgroundColor: item.isDestructive ? '#FEF2F2' : '#F3F4F6' },
+      ]}
+    >
+      {renderIcon(item)}
+    </View>
 
-                <Text
-                  style={[
-                    styles.menuText,
-                    item.color ? { color: item.color } : {},
-                  ]}
-                >
-                  {item.text}
-                </Text>
+    <Text
+      style={[
+        styles.menuText,
+        item.isDestructive && { color: '#EF4444', fontWeight: '600' }
+      ]}
+    >
+      {item.text}
+    </Text>
 
-                <Feather name="chevron-right" size={20} color="#9CA3AF" />
-              </TouchableOpacity>
-            ))}
-
+    <Feather name="chevron-right" size={20} color="#9CA3AF" />
+  </TouchableOpacity>
+))}
             {/* -------- DIVIDER (Fixed React Native text string crash) -------- */}
             {policies.length > 0 ? (
               <View
@@ -395,6 +408,28 @@ const SettingsPage = () => {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+};
+const handleDeleteAccount = () => {
+  Alert.alert(
+    "Delete Account",
+    "Are you sure you want to delete your account?",
+    [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Yes, Delete",
+        style: "destructive",
+        onPress: async () => {
+          const url = "https://app.therapidinvestors.com/delete-account-request";
+          const supported = await Linking.canOpenURL(url);
+          if (supported) {
+            await Linking.openURL(url);
+          } else {
+            Alert.alert("Error", "Unable to open link");
+          }
+        }
+      }
+    ]
   );
 };
 
